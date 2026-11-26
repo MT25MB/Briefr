@@ -27,7 +27,8 @@ import { applyRateLimit, getKeyStatus, isKeyEligible, pingKey, runWithRotation }
 import { buildFallbackWardrobe, buildTriagePrompt, triageLocally } from './lib/prompts.js'
 import { buildBriefingScript } from './lib/audioBriefing.js'
 import { MOCK_NEWS_ITEMS, runMorningBriefing } from './lib/digestRunner.js'
-import { getCurrentAccount } from './lib/accountService.js'
+import { bootstrapAuth, deleteAccount, getCurrentAccount, onAuthChange } from './lib/accountService.js'
+import { clearCachedDigest, exportAccountData, loadCloudData, saveCloudData } from './lib/db.js'
 import {
   clearOAuthProvider,
   completeGoogleOAuth,
@@ -106,11 +107,24 @@ export default function App() {
     setCalendars(next)
   }, [])
 
-  const handleAccountChange = useCallback((next) => {
+  const handleAccountChange = useCallback(async (next) => {
     setAccount(next)
-    setPrefs(loadPrefs())
+    let nextPrefs = loadPrefs()
+    let nextCalendars = loadCalendars()
+    if (next?.cloud) {
+      try {
+        const cloud = await loadCloudData(next.id)
+        if (cloud?.prefs) nextPrefs = { ...nextPrefs, ...cloud.prefs }
+        if (cloud?.calendars) nextCalendars = { ...nextCalendars, ...cloud.calendars }
+      } catch (error) {
+        setToast({ tone: 'warn', message: `Couldn't load synced settings: ${error.message}` })
+      }
+    }
+    savePrefs(nextPrefs)
+    saveCalendars(nextCalendars)
+    setPrefs(nextPrefs)
+    setCalendars(nextCalendars)
     setKeys(loadKeys())
-    setCalendars(loadCalendars())
     setRotationMeta(null)
     setNewsDigest(null)
     setNewsSource('raw')
@@ -145,6 +159,38 @@ export default function App() {
     },
     [],
   )
+
+  // Restore the Supabase session (or stay in local-only mode) on reload.
+  useEffect(() => {
+    let cancelled = false
+    const init = async () => {
+      const restored = await bootstrapAuth()
+      if (!cancelled) await handleAccountChange(restored)
+    }
+    init()
+    let unsubscribe = () => {}
+    onAuthChange((next) => {
+      if (!cancelled) handleAccountChange(next)
+    }).then((stop) => {
+      if (cancelled) stop()
+      else unsubscribe = stop
+    })
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
+  }, [handleAccountChange])
+
+  // Non-secret preferences and calendar identifiers follow the account.
+  useEffect(() => {
+    if (!account?.cloud) return undefined
+    const timer = window.setTimeout(() => {
+      saveCloudData(account.id, { prefs, calendars }).catch((error) => {
+        setToast({ tone: 'warn', message: `Couldn't sync settings: ${error.message}` })
+      })
+    }, 600)
+    return () => window.clearTimeout(timer)
+  }, [account, prefs, calendars])
 
   // Finish an OAuth redirect, if one just brought the user back.
   useEffect(() => {
@@ -399,8 +445,8 @@ export default function App() {
     setToast({ tone: 'ok', message: 'Fresh start. Saved keys and briefings are cleared.' })
   }
 
-  const wipeLocalData = () => {
-    if (!window.confirm('Disconnect every calendar and clear saved keys, settings and briefings on this device?')) return
+  const wipeLocalData = (skipConfirm = false) => {
+    if (!skipConfirm && !window.confirm('Disconnect every calendar and clear saved keys, settings and briefings on this device?')) return
     clearAllStorage()
     setKeys([])
     setCalendars(loadCalendars())
@@ -412,6 +458,56 @@ export default function App() {
     setShowKeyManager(false)
     setCalendarNonce((value) => value + 1)
     setToast({ tone: 'ok', message: 'Everything saved on this device is cleared.' })
+  }
+
+  const disconnectGoogle = () =>
+    setCalendarsAndSave({ ...calendars, google: { ...(calendars.google ?? {}), token: null } })
+  const disconnectNotion = () =>
+    setCalendarsAndSave({
+      ...calendars,
+      notion: { ...(calendars.notion ?? {}), token: null, databaseId: '' },
+    })
+  const disconnectIcs = (id) =>
+    setCalendarsAndSave({ ...calendars, ics: (calendars.ics ?? []).filter((feed) => feed.id !== id) })
+  const disconnectCaldav = () =>
+    setCalendarsAndSave({
+      ...calendars,
+      caldav: { ...(calendars.caldav ?? {}), proxyUrl: '', calendarUrl: '' },
+    })
+
+  const clearDigestCacheNow = () => {
+    clearCachedDigest()
+    setRotationMeta(null)
+    setNewsDigest(null)
+    setNewsSource('raw')
+    setToast({ tone: 'ok', message: "Today's saved briefing is cleared." })
+  }
+
+  const downloadExport = () => {
+    try {
+      const data = exportAccountData()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `briefr-data-${new Date().toISOString().slice(0, 10)}.json`
+      link.click()
+      URL.revokeObjectURL(url)
+      setToast({ tone: 'ok', message: 'Your data file is downloading. Secrets are hidden.' })
+    } catch (error) {
+      setToast({ tone: 'warn', message: error.message })
+    }
+  }
+
+  const deleteMyData = async () => {
+    if (!window.confirm('Delete your account and all Briefr data on this device?')) return
+    try {
+      await deleteAccount()
+      await handleAccountChange(null)
+      wipeLocalData(true)
+    } catch (error) {
+      setToast({ tone: 'warn', message: error.message })
+    }
   }
 
   const showSetupBanner = !prefs.onboardingDone && !bannerDismissed
@@ -562,6 +658,13 @@ export default function App() {
           account={account}
           prefs={prefs}
           onPrefsChange={updateSettings}
+          onDisconnectGoogle={disconnectGoogle}
+          onDisconnectNotion={disconnectNotion}
+          onDisconnectIcs={disconnectIcs}
+          onDisconnectCaldav={disconnectCaldav}
+          onClearCache={clearDigestCacheNow}
+          onExportData={downloadExport}
+          onDeleteData={deleteMyData}
         />
       )}
 
@@ -578,6 +681,7 @@ export default function App() {
           account={account}
           onChange={handleAccountChange}
           onClose={() => setShowAccount(false)}
+          onDeleted={() => wipeLocalData(true)}
         />
       )}
 

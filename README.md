@@ -48,11 +48,19 @@ If a calendar feed blocks browser requests, add a proxy URL for that feed. Token
 
 ## Accounts and privacy
 
-Use the **Sign in** button in the top bar to create a local account. It keeps each person's settings, keys, calendar links and saved digests separate on a shared device. Passwords are hashed with PBKDF2; the raw password is never stored.
+Briefr works with no account at all. Choose **Continue without an account (Local-only)** and everything stays in this browser.
 
-These accounts live in this browser only. They are great for a shared computer, but they do not sync across devices. A cloud provider such as Supabase or Clerk could be added later if you want real cross-device sign-in.
+For cross-device syncing, connect a free Supabase project:
 
-In **Keys & settings → Privacy & permissions**, you can see every calendar connection, what Briefr reads, and wipe local data in one click. Calendar titles are never written to a server log. BYOK API keys stay in your browser and never ship in the app bundle. You can also download your data or delete your account and everything it saved from the account panel.
+1. Create a project on Supabase's free tier and enable email sign-in.
+2. Run `supabase/schema.sql` in the Supabase SQL editor. It creates one preferences table with Row Level Security so each person can only read and write their own row.
+3. Copy `.env.example` to `.env.local` and fill in your project URL and **publishable anon key**.
+4. Add the same two values as build environment variables in Cloudflare Pages.
+5. Sign up from the top bar. Preferences and non-secret calendar settings follow your account between devices.
+
+Only public preferences sync: tone, location, wardrobe choices, news lens, feed URLs and database IDs. BYOK API keys and calendar tokens stay in browser localStorage. Never put a service-role key or raw token in a `VITE_*` variable — client bundles are public.
+
+In **Keys & settings → Privacy & data**, you can see every connection, disconnect a calendar one by one, clear the cached digest, export your data, delete your data, or wipe local storage. Calendar titles are never written to a server log.
 
 ## News lens (optional)
 
@@ -82,8 +90,11 @@ The RSS endpoint is stateless. It checks that feed URLs are public `http`/`https
 | `src/App.jsx` | The dashboard and all the small interactions |
 | `src/components/` | Cards, key manager, setup steps, and controls |
 | `src/lib/digestRunner.js` | Puts the morning run together |
-| `src/lib/accountService.js` | Local accounts, export and deletion |
+| `src/lib/auth.js` | Supabase Auth and local-only mode |
+| `src/lib/db.js` | User-scoped cloud preferences and exports |
 | `src/lib/session.js` | Active account session |
+| `src/components/PrivacyPanel.jsx` | Connections, data controls and privacy copy |
+| `supabase/schema.sql` | Preferences table and RLS policies |
 | `src/lib/calendarService.js` | Reads Google, Notion, ICS and CalDAV events |
 | `src/lib/llmRotator.js` | Tries keys and models in order |
 | `src/lib/weatherService.js` | Open-Meteo weather and place search |

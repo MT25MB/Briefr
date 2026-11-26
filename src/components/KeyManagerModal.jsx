@@ -15,12 +15,12 @@ import {
   Plus,
   RotateCcw,
   Server,
-  ShieldCheck,
   Trash2,
   X,
 } from 'lucide-react'
 import { Badge } from './ui.jsx'
 import ProviderGuides from './ProviderGuides.jsx'
+import PrivacyPanel from './PrivacyPanel.jsx'
 import { PROVIDER_CONFIG, getKeyStatus, markReady } from '../lib/llmRotator.js'
 import { PERSPECTIVE_MODES, POLITICAL_LENSES } from '../lib/storage.js'
 
@@ -282,6 +282,13 @@ export default function KeyManagerModal({
   account,
   prefs,
   onPrefsChange,
+  onDisconnectGoogle,
+  onDisconnectNotion,
+  onDisconnectIcs,
+  onDisconnectCaldav,
+  onClearCache,
+  onExportData,
+  onDeleteData,
 }) {
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -386,54 +393,21 @@ export default function KeyManagerModal({
             </p>
           </div>
 
-          <div className="mt-5 rounded-xl border border-[#E4E4E7] bg-white p-4">
-            <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[#09090B]">
-              <ShieldCheck size={13} className="text-[#4F46E5]" /> Privacy & permissions
-            </p>
-            <p className="mt-1 text-[11px] leading-snug text-[#71717A]">
-              Here's exactly what Briefr can see. Nothing is sent to a Briefr server — there isn't one.
-            </p>
-            <ul className="mt-3 space-y-1.5 text-[11px] text-[#52525B]">
-              <li>
-                <span className="font-semibold text-[#3F3F46]">Google Calendar:</span>{' '}
-                {connections?.google?.token ? 'Connected. Reads event titles, times and locations only.' : 'Not connected.'}
-              </li>
-              <li>
-                <span className="font-semibold text-[#3F3F46]">Notion:</span>{' '}
-                {connections?.notion?.token && connections?.notion?.databaseId
-                  ? 'Connected. Reads page titles, dates and status from one database.'
-                  : 'Not connected.'}
-              </li>
-              <li>
-                <span className="font-semibold text-[#3F3F46]">Calendar links:</span>{' '}
-                {connections?.ics?.length
-                  ? `${connections.ics.length} read-only ICS link${connections.ics.length === 1 ? '' : 's'} (Apple or Proton).`
-                  : 'None added.'}
-              </li>
-              <li>
-                <span className="font-semibold text-[#3F3F46]">Apple CalDAV proxy:</span>{' '}
-                {connections?.caldav?.proxyUrl && connections?.caldav?.calendarUrl
-                  ? "Connected through your proxy. Reads today's events only."
-                  : 'Not connected.'}
-              </li>
-              <li>
-                <span className="font-semibold text-[#3F3F46]">AI keys:</span> {keys.length} saved in this browser.
-                {account ? ` Signed in as ${account.email}.` : ''}
-              </li>
-              <li>
-                <span className="font-semibold text-[#3F3F46]">News lens:</span> {prefs?.politicalLens ?? 'Balanced / Neutral'} — used only to rank and frame news.
-              </li>
-            </ul>
-            <p className="mt-2 text-[10px] leading-snug text-[#A1A1AA]">
-              Calendar titles are never written to a server log. API keys and tokens stay in localStorage and are never bundled into the app.
-            </p>
-            <button
-              type="button"
-              onClick={onWipeLocalData}
-              className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[#FECDD3] px-3 py-2 text-[11px] font-semibold text-[#BE123C] hover:bg-[#FFF1F2]"
-            >
-              <Trash2 size={12} /> Disconnect & wipe local data
-            </button>
+          <div className="mt-5">
+            <PrivacyPanel
+              connections={connections}
+              keyCount={keys.length}
+              prefs={prefs}
+              account={account}
+              onDisconnectGoogle={onDisconnectGoogle}
+              onDisconnectNotion={onDisconnectNotion}
+              onDisconnectIcs={onDisconnectIcs}
+              onDisconnectCaldav={onDisconnectCaldav}
+              onClearCache={onClearCache}
+              onExportData={onExportData}
+              onDeleteData={onDeleteData}
+              onWipeLocalData={onWipeLocalData}
+            />
           </div>
 
           <p className="mb-2 mt-5 text-[12px] font-semibold text-[#09090B]">No key yet? Here's how to get one</p>

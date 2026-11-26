@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { Check, Download, Lock, LogOut, Trash2, UserRound, X } from 'lucide-react'
 import { Badge } from './ui.jsx'
 import { deleteAccount, exportAccountData, signIn, signOut, signUp } from '../lib/accountService.js'
+import { continueLocalOnly, isCloudConfigured } from '../lib/auth.js'
 
 const inputClass =
   'w-full rounded-lg border border-[#E4E4E7] px-3 py-2 text-[12px] text-[#09090B] placeholder:text-[#A1A1AA] focus:border-[#A5B4FC] focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/10'
 
-export default function AccountModal({ account, onChange, onClose }) {
+export default function AccountModal({ account, onChange, onClose, onDeleted }) {
   const [mode, setMode] = useState('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -31,6 +32,10 @@ export default function AccountModal({ account, onChange, onClose }) {
       const result = mode === 'signup'
         ? await signUp({ email, password, name })
         : await signIn({ email, password })
+      if (result?.needsConfirmation) {
+        setNotice('Check your email to confirm, then sign in.')
+        return
+      }
       onChange(result)
       setNotice(mode === 'signup' ? 'Your account is ready.' : 'Welcome back.')
     } catch (caught) {
@@ -60,8 +65,9 @@ export default function AccountModal({ account, onChange, onClose }) {
     setBusy(true)
     setError('')
     try {
-      await deleteAccount({ password })
+      await deleteAccount()
       onChange(null)
+      onDeleted?.()
       setNotice('Account and local data removed.')
     } catch (caught) {
       setError(caught.message)
@@ -138,10 +144,23 @@ export default function AccountModal({ account, onChange, onClose }) {
                 <UserRound size={14} /> {busy ? 'One moment…' : mode === 'signup' ? 'Create my account' : 'Sign in'}
               </button>
 
+              <button
+                type="button"
+                onClick={() => {
+                  const local = continueLocalOnly()
+                  onChange(local)
+                  setNotice('Local-only mode is on. Nothing leaves this device.')
+                }}
+                className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-[#E4E4E7] px-3 text-[12px] font-semibold text-[#3F3F46] hover:bg-[#FAFAFA]"
+              >
+                Continue without an account (Local-only)
+              </button>
+
               <p className="flex items-start gap-1.5 text-[10px] leading-snug text-[#A1A1AA]">
                 <Lock size={11} className="mt-0.5 shrink-0" />
-                Accounts live in this browser only. Your password is hashed, never stored as plain text.
-                This keeps a shared device tidy; it does not sync across devices.
+                {isCloudConfigured
+                  ? 'Sign-in is powered by Supabase. Your preferences sync; API keys still stay in this browser.'
+                  : 'Cloud sign-in is not configured on this deployment. Local-only mode works right away.'}
               </p>
             </form>
           ) : (
@@ -155,7 +174,9 @@ export default function AccountModal({ account, onChange, onClose }) {
                     <p className="truncate text-[13px] font-semibold text-[#09090B]">{account.name || account.email}</p>
                     <p className="truncate text-[11px] text-[#71717A]">{account.email}</p>
                   </div>
-                  <Badge tone="emerald">Signed in</Badge>
+                  <Badge tone={account.localOnly ? 'neutral' : 'emerald'}>
+                    {account.localOnly ? 'Local only' : 'Synced'}
+                  </Badge>
                 </div>
               </div>
 
@@ -180,23 +201,15 @@ export default function AccountModal({ account, onChange, onClose }) {
               </button>
 
               <div className="rounded-xl border border-[#FECDD3] bg-[#FFF1F2] p-4">
-                <p className="text-[12px] font-semibold text-[#9F1239]">Delete this account</p>
+                <p className="text-[12px] font-semibold text-[#9F1239]">Delete my data</p>
                 <p className="mt-1 text-[11px] leading-snug text-[#BE123C]">
-                  This removes the account and all of its saved settings, keys, calendars and digests from this browser.
+                  This removes your saved settings, keys, calendar links and cached briefings here. If you have a synced account, it also closes that account.
                 </p>
-                <input
-                  className={`${inputClass} mt-3 bg-white`}
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Type your password to confirm"
-                  aria-label="Password to confirm deletion"
-                />
                 <button
                   type="button"
                   onClick={removeAccount}
-                  disabled={busy || password.length < 8}
-                  className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[#BE123C] px-3 text-[11px] font-semibold text-white hover:bg-[#9F1239] disabled:opacity-40"
+                  disabled={busy}
+                  className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[#BE123C] px-3 text-[11px] font-semibold text-white hover:bg-[#9F1239] disabled:opacity-40"
                 >
                   <Trash2 size={13} /> Delete account and data
                 </button>
