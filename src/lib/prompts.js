@@ -55,8 +55,8 @@ export function buildNewsRankingPrompt({
   topics = [],
   location = '',
   tone = 'Quick Bullets',
-  politicalLens = 'Balanced / Neutral',
-  perspectiveMode = 'Cross-perspective',
+  politicalLens = 'Neutral / Balanced',
+  coverageMode = 'Balanced / Both Sides',
 }) {
   return `You are Briefr's news editor. Cluster and deduplicate the RSS items below into a short morning briefing. Stories about the same event appearing in several feeds count as ONE story — keep the clearest source URL.
 
@@ -64,7 +64,7 @@ LOCATION: ${location || 'not specified'}
 SELECTED TOPICS: ${topics.join(', ') || 'all'}
 WRITING TONE: ${tone}
 READER'S NEWS LENS: ${politicalLens}
-PERSPECTIVE PREFERENCE: ${perspectiveMode}
+COVERAGE MODE: ${coverageMode}
 
 RSS ITEMS (title, source, published, snippet, url):
 ${JSON.stringify(items.map((item) => ({
@@ -99,9 +99,9 @@ RULES:
 - Keep "summary" and "whyItMatters" plain-language and ${tone === 'Friendly' ? 'warm and conversational' : tone === 'Direct' ? 'short and blunt' : 'short and scannable'}.
 - Every "url" must be copied exactly from one of the input items. Do not use markdown in any field.
 - The reader's news lens is optional and applies ONLY to news selection and framing. Never change facts, weather, or schedule details because of it.
-- If the lens is "Balanced / Neutral" or "Custom / No Political Filtering", rank stories by importance and proximity only. Do not add political framing.
-- If perspective mode is "Cross-perspective", prefer showing a short, fair note on two available viewpoints for major stories. Use only viewpoints actually present in the input items; never invent a source or a quote.
-- If perspective mode is "Mostly aligned", you may favor coverage that matches the reader's lens when several similar stories exist, but still report the core verified facts and treat people respectfully.
+- If the lens is "Neutral / Balanced" or "None / Unfiltered", rank stories by importance and proximity only. Do not add political framing.
+- If coverage mode is "Balanced / Both Sides", prefer showing a short, fair note on two available viewpoints for major stories. Use only viewpoints actually present in the input items; never invent a source or a quote.
+- If coverage mode is "Aligned Lens", you may favor coverage that matches the reader's lens when several similar stories exist, but still report the core verified facts, keep source attribution exact, and treat people respectfully.
 - Never label a person or group as good or bad because of political affiliation. Never encourage fear or hostility.`
 }
 

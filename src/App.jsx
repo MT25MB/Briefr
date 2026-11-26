@@ -605,8 +605,9 @@ export default function App() {
             error={newsMeta.errors.length ? `${newsMeta.errors.length} feed(s) failed` : null}
             sourceCount={newsMeta.sourceCount}
             politicalLens={prefs.politicalLens}
-            perspectiveMode={prefs.perspectiveMode}
-            onResetLens={() => updateSettings({ politicalLens: 'Balanced / Neutral', perspectiveMode: 'Cross-perspective' })}
+            coverageMode={prefs.coverageMode}
+            onResetLens={() => updateSettings({ politicalLens: 'Neutral / Balanced', coverageMode: 'Balanced / Both Sides' })}
+            onOpenSettings={() => setShowKeyManager(true)}
           />
           <div className="space-y-5">
             <ScheduleCard

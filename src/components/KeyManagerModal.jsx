@@ -22,7 +22,7 @@ import { Badge } from './ui.jsx'
 import ProviderGuides from './ProviderGuides.jsx'
 import PrivacyPanel from './PrivacyPanel.jsx'
 import { PROVIDER_CONFIG, getKeyStatus, markReady } from '../lib/llmRotator.js'
-import { PERSPECTIVE_MODES, POLITICAL_LENSES } from '../lib/storage.js'
+import { COVERAGE_MODES, POLITICAL_LENSES } from '../lib/storage.js'
 
 const STATUS_TONES = {
   ready: 'emerald',
@@ -360,7 +360,7 @@ export default function KeyManagerModal({
             </p>
             <select
               aria-label="Political news lens"
-              value={prefs?.politicalLens ?? 'Balanced / Neutral'}
+              value={prefs?.politicalLens ?? 'Neutral / Balanced'}
               onChange={(event) => onPrefsChange({ politicalLens: event.target.value })}
               className="mt-3 w-full rounded-lg border border-[#E4E4E7] px-3 py-2 text-[11px] focus:border-[#A5B4FC] focus:outline-none"
             >
@@ -368,21 +368,21 @@ export default function KeyManagerModal({
                 <option key={lens} value={lens}>{lens}</option>
               ))}
             </select>
-            {(prefs?.politicalLens ?? 'Balanced / Neutral') !== 'Balanced / Neutral' &&
-              prefs?.politicalLens !== 'Custom / No Political Filtering' && (
+            {(prefs?.politicalLens ?? 'Neutral / Balanced') !== 'Neutral / Balanced' &&
+              prefs?.politicalLens !== 'None / Unfiltered' && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {PERSPECTIVE_MODES.map((mode) => {
-                    const active = (prefs?.perspectiveMode ?? 'Cross-perspective') === mode
+                  {COVERAGE_MODES.map((mode) => {
+                    const active = (prefs?.coverageMode ?? 'Balanced / Both Sides') === mode
                     return (
                       <button
                         key={mode}
                         type="button"
-                        onClick={() => onPrefsChange({ perspectiveMode: mode })}
+                        onClick={() => onPrefsChange({ coverageMode: mode })}
                         className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold ${
                           active ? 'border-[#4F46E5] bg-[#EEF2FF] text-[#4F46E5]' : 'border-[#E4E4E7] text-[#71717A]'
                         }`}
                       >
-                        {mode === 'Cross-perspective' ? 'See both sides' : 'Mostly my view'}
+                        {mode}
                       </button>
                     )
                   })}

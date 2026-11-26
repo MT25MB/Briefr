@@ -12,7 +12,7 @@ const PREF_FIELDS = [
   'topics',
   'feeds',
   'politicalLens',
-  'perspectiveMode',
+  'coverageMode',
   'onboardingDone',
   'rateLimitSim',
 ]

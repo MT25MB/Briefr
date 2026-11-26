@@ -64,7 +64,7 @@ In **Keys & settings → Privacy & data**, you can see every connection, disconn
 
 ## News lens (optional)
 
-If you'd like, set a general political lens during setup or in **Keys & settings**. You can choose Balanced / Neutral, Conservative / Republican, Liberal / Democratic, Libertarian, Independent / Centrist, or no political filtering at all. You can also ask for mostly aligned coverage or a short look at both sides when the feeds contain more than one view.
+If you'd like, set a general political lens during setup or in **Keys & settings**. You can choose Neutral / Balanced, Conservative / Republican, Liberal / Democratic, Libertarian, Independent / Centrist, or None / Unfiltered. Coverage Mode can be Aligned Lens or Balanced / Both Sides.
 
 This setting only affects which news stories get ranked higher and how they're summarized. It never changes weather, outfit advice, calendar events, or facts in a story. It's saved with your account preferences, and the News card has a one-click **Back to balanced** button.
 

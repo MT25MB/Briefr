@@ -105,7 +105,7 @@ export async function runMorningBriefing({ prefs, keys = [], forceRefresh = fals
             location: prefs.location,
             tone: prefs.tone,
             politicalLens: prefs.politicalLens,
-            perspectiveMode: prefs.perspectiveMode,
+            coverageMode: prefs.coverageMode,
           }),
           systemPrompt: SYSTEM_PROMPT,
           forceRefresh,
@@ -115,7 +115,7 @@ export async function runMorningBriefing({ prefs, keys = [], forceRefresh = fals
             topics: prefs.topics,
             feeds: prefs.feeds,
             politicalLens: prefs.politicalLens,
-            perspectiveMode: prefs.perspectiveMode,
+            coverageMode: prefs.coverageMode,
           }),
         })
         if (validNews(newsRun.data)) {

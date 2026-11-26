@@ -38,15 +38,15 @@ export function copyAnonymousDataToScope(accountId) {
 export const TONES = ['Quick Bullets', 'Friendly', 'Direct']
 
 export const POLITICAL_LENSES = [
-  'Balanced / Neutral',
+  'Neutral / Balanced',
   'Conservative / Republican',
   'Liberal / Democratic',
   'Libertarian',
   'Independent / Centrist',
-  'Custom / No Political Filtering',
+  'None / Unfiltered',
 ]
 
-export const PERSPECTIVE_MODES = ['Cross-perspective', 'Mostly aligned']
+export const COVERAGE_MODES = ['Aligned Lens', 'Balanced / Both Sides']
 
 export const DEFAULT_PREFS = {
   tone: 'Quick Bullets',
@@ -57,8 +57,8 @@ export const DEFAULT_PREFS = {
   commute: 'Walk / Transit',
   topics: ['Local', 'Tech & AI'],
   feeds: [],
-  politicalLens: 'Balanced / Neutral',
-  perspectiveMode: 'Cross-perspective',
+  politicalLens: 'Neutral / Balanced',
+  coverageMode: 'Balanced / Both Sides',
 }
 
 export const DEFAULT_CALENDARS = {
@@ -150,9 +150,24 @@ function resetDailyFlagsIfNeeded() {
   }
 }
 
+const LENS_ALIASES = {
+  'Balanced / Neutral': 'Neutral / Balanced',
+  'Custom / No Political Filtering': 'None / Unfiltered',
+}
+const COVERAGE_ALIASES = {
+  'Cross-perspective': 'Balanced / Both Sides',
+  'Mostly aligned': 'Aligned Lens',
+}
+
 export function loadPrefs() {
   migrateLegacy()
-  return { ...DEFAULT_PREFS, ...readJson(PREFS_KEY, {}) }
+  const stored = readJson(PREFS_KEY, {})
+  const politicalLens = LENS_ALIASES[stored.politicalLens] ?? stored.politicalLens ?? DEFAULT_PREFS.politicalLens
+  const rawCoverage = stored.coverageMode ?? stored.perspectiveMode
+  const coverageMode = COVERAGE_ALIASES[rawCoverage] ?? rawCoverage ?? DEFAULT_PREFS.coverageMode
+  const next = { ...DEFAULT_PREFS, ...stored, politicalLens, coverageMode }
+  delete next.perspectiveMode
+  return next
 }
 
 export function savePrefs(prefs) {
@@ -201,10 +216,10 @@ export function newsCacheKey({
   topics = [],
   feeds = [],
   politicalLens = '',
-  perspectiveMode = '',
+  coverageMode = '',
 } = {}) {
   return `${todayKey()}:news:${hash(
-    [location, tone, topics.join(','), feeds.join(','), politicalLens, perspectiveMode].join('|'),
+    [location, tone, topics.join(','), feeds.join(','), politicalLens, coverageMode].join('|'),
   )}`
 }
 

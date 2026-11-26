@@ -22,7 +22,7 @@ import { KeyEditor } from './KeyManagerModal.jsx'
 import ProviderGuides from './ProviderGuides.jsx'
 import LocationSearch from './LocationSearch.jsx'
 import { TOPIC_PACKS } from '../lib/mockDigest.js'
-import { PERSPECTIVE_MODES, POLITICAL_LENSES } from '../lib/storage.js'
+import { COVERAGE_MODES, POLITICAL_LENSES } from '../lib/storage.js'
 
 const STEPS = ['Free AI keys', 'Your details', 'What you follow']
 const SENSITIVITIES = ['Runs Cold', 'Normal', 'Runs Warm']
@@ -263,7 +263,7 @@ export default function OnboardingWizard({
                 </p>
                 <select
                   aria-label="Political news lens"
-                  value={settings.politicalLens ?? 'Balanced / Neutral'}
+                  value={settings.politicalLens ?? 'Neutral / Balanced'}
                   onChange={(event) => onChange({ politicalLens: event.target.value })}
                   className="mt-3 w-full rounded-lg border border-[#E4E4E7] px-3 py-2 text-[11px] focus:border-[#A5B4FC] focus:outline-none"
                 >
@@ -271,23 +271,23 @@ export default function OnboardingWizard({
                     <option key={lens} value={lens}>{lens}</option>
                   ))}
                 </select>
-                {settings.politicalLens !== 'Balanced / Neutral' &&
-                  settings.politicalLens !== 'Custom / No Political Filtering' && (
+                {settings.politicalLens !== 'Neutral / Balanced' &&
+                  settings.politicalLens !== 'None / Unfiltered' && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {PERSPECTIVE_MODES.map((mode) => {
-                        const active = (settings.perspectiveMode ?? 'Cross-perspective') === mode
+                      {COVERAGE_MODES.map((mode) => {
+                        const active = (settings.coverageMode ?? 'Balanced / Both Sides') === mode
                         return (
                           <button
                             key={mode}
                             type="button"
-                            onClick={() => onChange({ perspectiveMode: mode })}
+                            onClick={() => onChange({ coverageMode: mode })}
                             className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold ${
                               active
                                 ? 'border-[#4F46E5] bg-[#EEF2FF] text-[#4F46E5]'
                                 : 'border-[#E4E4E7] text-[#71717A]'
                             }`}
                           >
-                            {mode === 'Cross-perspective' ? 'See both sides' : 'Mostly my view'}
+                            {mode}
                           </button>
                         )
                       })}

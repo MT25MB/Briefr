@@ -85,7 +85,7 @@ export default function PrivacyPanel({
         />
         <Row
           label="News lens"
-          detail={`${prefs.politicalLens ?? 'Balanced / Neutral'} — used only to rank and frame news.`}
+          detail={`${prefs.politicalLens ?? 'Neutral / Balanced'} — used only to rank and frame news.`}
         />
       </div>
 

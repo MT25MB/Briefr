@@ -6,12 +6,12 @@ const FILTERS = ['All', 'Local', 'Important']
 const VIEWS = ['Quick read', 'Every headline']
 
 const LENS_LABELS = {
-  'Balanced / Neutral': 'Balanced',
-  'Conservative / Republican': 'Conservative',
-  'Liberal / Democratic': 'Liberal',
+  'Neutral / Balanced': 'Neutral / Balanced',
+  'Conservative / Republican': 'Conservative / Republican',
+  'Liberal / Democratic': 'Liberal / Democratic',
   Libertarian: 'Libertarian',
-  'Independent / Centrist': 'Centrist',
-  'Custom / No Political Filtering': 'No filtering',
+  'Independent / Centrist': 'Independent / Centrist',
+  'None / Unfiltered': 'None / Unfiltered',
 }
 
 function Story({ story }) {
@@ -90,9 +90,10 @@ export default function NewsFeedCard({
   meta = null,
   error = null,
   sourceCount = 0,
-  politicalLens = 'Balanced / Neutral',
-  perspectiveMode = 'Cross-perspective',
+  politicalLens = 'Neutral / Balanced',
+  coverageMode = 'Balanced / Both Sides',
   onResetLens,
+  onOpenSettings,
 }) {
   const [view, setView] = useState('Quick read')
   const [filter, setFilter] = useState('All')
@@ -120,23 +121,28 @@ export default function NewsFeedCard({
         }
       />
 
-      {politicalLens !== 'Balanced / Neutral' && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-[#F4F4F5] bg-[#FAFAFA] px-5 py-2 sm:px-6">
+      <div className="flex flex-wrap items-center gap-2 border-b border-[#F4F4F5] bg-[#FAFAFA] px-5 py-2 sm:px-6">
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          title="Change your news lens in settings"
+          className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5]/40"
+        >
           <Badge tone="indigo">Lens: {LENS_LABELS[politicalLens] ?? politicalLens}</Badge>
-          <span className="text-[10px] text-[#A1A1AA]">
-            {perspectiveMode === 'Mostly aligned' ? 'Mostly your view' : 'Both sides when available'}
-          </span>
-          {onResetLens && (
-            <button
-              type="button"
-              onClick={onResetLens}
-              className="ml-auto text-[10px] font-semibold text-[#4F46E5] hover:underline"
-            >
-              Back to balanced
-            </button>
-          )}
-        </div>
-      )}
+        </button>
+        <span className="text-[10px] text-[#A1A1AA]">
+          {coverageMode === 'Aligned Lens' ? 'Aligned lens' : 'Both sides when available'}
+        </span>
+        {politicalLens !== 'Neutral / Balanced' && onResetLens && (
+          <button
+            type="button"
+            onClick={onResetLens}
+            className="ml-auto text-[10px] font-semibold text-[#4F46E5] hover:underline"
+          >
+            Reset to neutral
+          </button>
+        )}
+      </div>
 
       <div className="flex gap-5 border-b border-[#F4F4F5] px-5 sm:px-6">
         {FILTERS.map((item) => {
