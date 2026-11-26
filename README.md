@@ -81,7 +81,25 @@ This setting only affects which news stories get ranked higher and how they're s
 
 You can also deploy from the command line with `npx wrangler pages deploy dist --project-name=briefr`.
 
-The RSS endpoint is stateless. It checks that feed URLs are public `http`/`https` addresses, gives up after eight seconds, and caches successful feed results at the edge for 15 minutes. Hashed build files also get long-lived caching through `public/_headers`.
+The RSS endpoint is stateless. It checks that feed URLs are public `http`/`https` addresses, gives up after eight seconds, and caches successful feed results at the edge for 15 minutes. Hashed build files also get long-lived caching through `public/_headers`. The ICS endpoint only accepts `https` and blocks private addresses.
+
+### Environment variables
+
+| Name | Kind | Where it goes |
+| --- | --- | --- |
+| `VITE_SUPABASE_URL` | Public | `.env.local` and Cloudflare Pages build vars |
+| `VITE_SUPABASE_ANON_KEY` | Public publishable key | `.env.local` and Cloudflare Pages build vars |
+
+Both `VITE_*` values are bundled into browser JavaScript, so they must be publishable. Never put a Supabase service-role key, LLM API key, Notion token, or calendar token in a `VITE_*` variable. Server-only secrets, if you add a proxy later, belong in Cloudflare Pages secrets. No server logs store calendar titles or event details.
+
+### Setup checklist
+
+- [ ] `npm install` then `npm run dev`; open `http://localhost:5173`.
+- [ ] `npm run build`; confirm `dist/index.html`, `dist/favicon.svg`, `dist/_headers` and hashed assets exist. `functions/api/rss.js` and `functions/api/ics.js` stay at the repo root — Cloudflare adds them at deploy time.
+- [ ] Optional: create a Supabase project, run `supabase/schema.sql`, and set the two public variables from `.env.example`.
+- [ ] Deploy with `npx wrangler pages deploy dist --project-name=briefr` or connect the repo in the Cloudflare dashboard.
+- [ ] Test locally: choose local-only mode, then check Weather, News, Calendar and Inbox cards. Use **Try a rate limit** to confirm a provider failure leaves the rest of the page intact.
+- [ ] Test cloud: sign up, change the news lens, add a calendar link, reload, and confirm settings come back.
 
 ## Project map
 

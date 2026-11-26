@@ -9,6 +9,7 @@ import OnboardingWizard from './components/OnboardingWizard.jsx'
 import KeyManagerModal from './components/KeyManagerModal.jsx'
 import CalendarSourcesModal from './components/CalendarSourcesModal.jsx'
 import AccountModal from './components/AccountModal.jsx'
+import { CardBoundary } from './components/ErrorBoundary.jsx'
 import RotationStatusBanner from './components/RotationStatusBanner.jsx'
 import { digest, mockCalendarEvents, mockWeather } from './lib/mockDigest.js'
 import {
@@ -583,47 +584,55 @@ export default function App() {
         </div>
 
         <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
-          <WeatherOutfitCard
-            weather={weather}
-            wardrobe={wardrobe}
-            source={weatherMeta.source}
-            wardrobeSource={rotationMeta ? 'ai' : 'deterministic'}
-            loading={wardrobeLoading}
-            error={weatherMeta.error}
-            preferences={{
-              sensitivity: prefs.sensitivity,
-              commute: prefs.commute,
-              tone: prefs.tone,
-            }}
-          />
-          <NewsFeedCard
-            digest={newsDigest}
-            items={rawNews}
-            source={newsSource}
-            loading={newsLoading}
-            meta={newsRankMeta}
-            error={newsMeta.errors.length ? `${newsMeta.errors.length} feed(s) failed` : null}
-            sourceCount={newsMeta.sourceCount}
-            politicalLens={prefs.politicalLens}
-            coverageMode={prefs.coverageMode}
-            onResetLens={() => updateSettings({ politicalLens: 'Neutral / Balanced', coverageMode: 'Balanced / Both Sides' })}
-            onOpenSettings={() => setShowKeyManager(true)}
-          />
+          <CardBoundary title="Weather" resetKey={calendarNonce}>
+            <WeatherOutfitCard
+              weather={weather}
+              wardrobe={wardrobe}
+              source={weatherMeta.source}
+              wardrobeSource={rotationMeta ? 'ai' : 'deterministic'}
+              loading={wardrobeLoading}
+              error={weatherMeta.error}
+              preferences={{
+                sensitivity: prefs.sensitivity,
+                commute: prefs.commute,
+                tone: prefs.tone,
+              }}
+            />
+          </CardBoundary>
+          <CardBoundary title="News" resetKey={calendarNonce}>
+            <NewsFeedCard
+              digest={newsDigest}
+              items={rawNews}
+              source={newsSource}
+              loading={newsLoading}
+              meta={newsRankMeta}
+              error={newsMeta.errors.length ? `${newsMeta.errors.length} feed(s) failed` : null}
+              sourceCount={newsMeta.sourceCount}
+              politicalLens={prefs.politicalLens}
+              coverageMode={prefs.coverageMode}
+              onResetLens={() => updateSettings({ politicalLens: 'Neutral / Balanced', coverageMode: 'Balanced / Both Sides' })}
+              onOpenSettings={() => setShowKeyManager(true)}
+            />
+          </CardBoundary>
           <div className="space-y-5">
-            <ScheduleCard
-              events={events}
-              loading={calendarMeta.loading}
-              errors={calendarMeta.errors}
-              dayNotes={wardrobe.dayNotes ?? ''}
-              onConnect={() => setShowCalendars(true)}
-            />
-            <TriageCard
-              inbox={digest.inbox}
-              result={triageResult}
-              loading={triageLoading}
-              source={triageSource}
-              onTriage={handleTriage}
-            />
+            <CardBoundary title="Calendar" resetKey={calendarNonce}>
+              <ScheduleCard
+                events={events}
+                loading={calendarMeta.loading}
+                errors={calendarMeta.errors}
+                dayNotes={wardrobe.dayNotes ?? ''}
+                onConnect={() => setShowCalendars(true)}
+              />
+            </CardBoundary>
+            <CardBoundary title="Inbox" resetKey={calendarNonce}>
+              <TriageCard
+                inbox={digest.inbox}
+                result={triageResult}
+                loading={triageLoading}
+                source={triageSource}
+                onTriage={handleTriage}
+              />
+            </CardBoundary>
           </div>
         </div>
 
