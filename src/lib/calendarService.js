@@ -1,5 +1,6 @@
 // Calendar adapters. Tokens stay in this browser; no Briefr server is involved.
 import { loadCalendars, saveCalendars, todayKey } from './storage.js'
+import { parseIcsFeed } from '../../api/icsShared.js'
 
 const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/calendar.events.readonly',
@@ -15,7 +16,6 @@ const OAUTH_PROVIDER_KEY = 'briefr_oauth_provider'
 const PKCE_KEY = 'briefr_pkce_verifier'
 
 const DAY_MS = 86_400_000
-const WEEKDAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
 
 function safeUrl(url) {
   try {
@@ -134,13 +134,16 @@ export async function fetchGoogleEvents({ token, date = todayKey() }) {
     singleEvents: 'true',
     orderBy: 'startTime',
     maxResults: '100',
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
   })
   const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!response.ok) throw new Error(`Google Calendar could not be read (${response.status})`)
   const data = await response.json()
-  return (data.items ?? []).map((item) =>
+  return (data.items ?? [])
+    .filter((item) => item.status !== 'cancelled')
+    .map((item) =>
     normalizeEvent({
       id: `google-${item.id}`,
       source: 'Google',
@@ -259,229 +262,45 @@ export async function fetchNotionEvents({ token, databaseId, date = todayKey() }
 
 // ---------- ICS / iCalendar (Apple, Proton, and other calendar links) ----------
 
-function unfoldIcs(text) {
-  return String(text ?? '')
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .split('\n')
-    .reduce((lines, line) => {
-      if (/^[ \t]/.test(line) && lines.length) lines[lines.length - 1] += line.slice(1)
-      else lines.push(line)
-      return lines
-    }, [])
-}
-
-function parseLine(line) {
-  const colon = line.indexOf(':')
-  if (colon < 0) return null
-  const left = line.slice(0, colon)
-  const value = line.slice(colon + 1).trim()
-  const [name, ...params] = left.split(';')
-  return {
-    name: name.toUpperCase(),
-    value,
-    params: Object.fromEntries(params.map((part) => part.split('=').map((item) => item.toUpperCase()))),
-  }
-}
-
-function timeZoneOffsetMs(date, timeZone) {
+function localTimeZone() {
   try {
-    const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      hour12: false,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    })
-      .formatToParts(date)
-      .reduce((acc, part) => ({ ...acc, [part.type]: part.value }), {})
-    const asUtc = Date.UTC(
-      Number(parts.year),
-      Number(parts.month) - 1,
-      Number(parts.day),
-      Number(parts.hour) % 24,
-      Number(parts.minute),
-      Number(parts.second),
-    )
-    return asUtc - date.getTime()
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
   } catch {
-    return 0
+    return 'UTC'
   }
-}
-
-function zonedWallTimeToDate(value, timeZone) {
-  const match = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?/)
-  if (!match) return new Date(value)
-  const [, year, month, day, hour, minute, second = '00'] = match
-  const wall = Date.UTC(+year, +month - 1, +day, +hour, +minute, +second)
-  let guess = new Date(wall)
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const next = new Date(wall - timeZoneOffsetMs(guess, timeZone))
-    if (next.getTime() === guess.getTime()) break
-    guess = next
-  }
-  return guess
-}
-
-function parseIcsDate(value, params = {}) {
-  const text = String(value ?? '').trim()
-  if (/^\d{8}$/.test(text) || params.VALUE === 'DATE') {
-    return {
-      date: new Date(`${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}T00:00:00`),
-      allDay: true,
-    }
-  }
-  if (text.endsWith('Z')) return { date: new Date(text), allDay: false }
-  const timeZone = params.TZID
-  const date = timeZone && Intl.DateTimeFormat().resolvedOptions().timeZone !== timeZone
-    ? zonedWallTimeToDate(text, timeZone)
-    : new Date(
-        text
-          .replace(/^(\d{4})(\d{2})(\d{2})T/, '$1-$2-$3T')
-          .replace(/T(\d{2})(\d{2})(\d{2})?/, (_, hour, minute, second) =>
-            `T${hour}:${minute}${second ? `:${second}` : ''}`,
-          ),
-      )
-  return { date, allDay: false }
-}
-
-function rruleMatches(rrule, originalStart, candidate) {
-  const rule =
-    rrule && typeof rrule === 'object'
-      ? rrule
-      : Object.fromEntries(
-          String(rrule ?? '')
-            .replace(/^RRULE:/i, '')
-            .split(';')
-            .filter(Boolean)
-            .map((part) => part.split('=').map((item) => item.toUpperCase())),
-        )
-  const frequency = rule.FREQ ?? ''
-  const interval = Math.max(1, Number(rule.INTERVAL) || 1)
-  const days = new Set((rule.BYDAY ?? '').split(',').filter(Boolean))
-  const weekday = WEEKDAYS[candidate.getDay()]
-  const sameDay = candidate.getDate() === originalStart.getDate()
-  const sameMonth = candidate.getMonth() === originalStart.getMonth()
-  const dayDiff = Math.round((candidate - originalStart) / DAY_MS)
-  const monthDiff =
-    (candidate.getFullYear() - originalStart.getFullYear()) * 12 + candidate.getMonth() - originalStart.getMonth()
-
-  if (frequency === 'DAILY') return dayDiff % interval === 0 && (!days.size || days.has(weekday))
-  if (frequency === 'WEEKLY') {
-    if (days.size) return days.has(weekday) && Math.floor(dayDiff / 7) % interval === 0
-    return weekday === WEEKDAYS[originalStart.getDay()] && dayDiff % (7 * interval) === 0
-  }
-  if (frequency === 'MONTHLY') return sameDay && monthDiff % interval === 0
-  if (frequency === 'YEARLY') {
-    return sameDay && sameMonth && (candidate.getFullYear() - originalStart.getFullYear()) % interval === 0
-  }
-  return false
-}
-
-function recurrenceOccurrences(event, target) {
-  const original = parseIcsDate(event.start, event.params ?? {})
-  if (!Number.isNaN(original.date.getTime())) {
-    const end = event.end ? parseIcsDate(event.end, event.params ?? {}).date : new Date(original.date.getTime() + 3_600_000)
-    const duration = Math.max(0, end - original.date)
-    if (!event.rrule) {
-      if (original.date <= target.end && end >= target.start) return [original.date]
-      return []
-    }
-    const rule = Object.fromEntries(
-      String(event.rrule).replace(/^RRULE:/i, '').split(';').filter(Boolean).map((part) => part.split('=')),
-    )
-    const until = rule.UNTIL ? parseIcsDate(rule.UNTIL).date : null
-    const count = Number(rule.COUNT) || Infinity
-    const exdates = new Set((event.exdates ?? []).map((item) => parseIcsDate(item).date.toDateString()))
-    const occurrences = []
-    let seen = 0
-    for (let cursor = new Date(original.date); cursor <= target.end && seen < 800; cursor = new Date(cursor.getTime() + DAY_MS)) {
-      if (until && cursor > until) break
-      if (cursor >= original.date && rruleMatches(rule, original.date, cursor)) {
-        seen += 1
-        if (seen > count) break
-        if (!exdates.has(cursor.toDateString())) {
-          const occurrenceEnd = new Date(cursor.getTime() + duration)
-          if (cursor <= target.end && occurrenceEnd >= target.start) occurrences.push(cursor)
-        }
-      }
-    }
-    return occurrences
-  }
-  return []
 }
 
 export function parseIcs(text, source = 'Calendar', date = todayKey()) {
-  const target = dayBounds(date)
-  const blocks = unfoldIcs(text)
-    .join('\n')
-    .split(/BEGIN:VEVENT/i)
-    .slice(1)
-    .map((block) => block.split(/END:VEVENT/i)[0])
-
-  return blocks.flatMap((block, index) => {
-    const fields = block
-      .split('\n')
-      .map(parseLine)
-      .filter(Boolean)
-    const get = (name) => fields.find((field) => field.name === name)
-    const startField = get('DTSTART')
-    if (!startField) return []
-    const event = {
-      uid: get('UID')?.value ?? `${source}-${index}`,
-      title: get('SUMMARY')?.value ?? '(No title)',
-      location: get('LOCATION')?.value ?? '',
-      start: startField.value,
-      end: get('DTEND')?.value ?? '',
-      params: startField.params,
-      rrule: get('RRULE')?.value ?? '',
-      exdates: fields.filter((field) => field.name === 'EXDATE').map((field) => field.value),
-    }
-    return recurrenceOccurrences(event, target).map((start, occurrenceIndex) => {
-      const parsedEnd = event.end ? parseIcsDate(event.end, event.params).date : null
-      const duration = parsedEnd && !Number.isNaN(parsedEnd.getTime())
-        ? parsedEnd - parseIcsDate(event.start, event.params).date
-        : 3_600_000
-      return normalizeEvent({
-        id: `${source.toLowerCase()}-${event.uid}-${occurrenceIndex}`,
-        source,
-        title: event.title,
-        start,
-        end: new Date(start.getTime() + duration),
-        allDay: parseIcsDate(event.start, event.params).allDay,
-        location: event.location,
-      })
-    })
-  })
+  return parseIcsFeed(text, { source, date, timeZone: localTimeZone() }).map((item) => normalizeEvent(item))
 }
 
-async function readFeedAsText(url, proxyUrl) {
+async function itemsFromIcsService({ url, date, source, proxyUrl }) {
   if (proxyUrl && safeUrl(proxyUrl)) {
     const response = await fetch(proxyUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, date, source, timeZone: localTimeZone() }),
     })
     if (!response.ok) throw new Error(`Calendar proxy could not read the feed (${response.status})`)
     const data = await response.json().catch(() => null)
-    return data?.text ?? data?.ics ?? JSON.stringify(data)
+    if (Array.isArray(data?.items)) return data.items
+    if (typeof data?.text === 'string' || typeof data?.ics === 'string') {
+      return parseIcsFeed(data.text ?? data.ics, { source, date, timeZone: localTimeZone() })
+    }
+    return []
   }
-  const response = await fetch(url, { headers: { Accept: 'text/calendar, text/plain, */*' } })
-  if (!response.ok) throw new Error(`Calendar link could not be read (${response.status})`)
-  return response.text()
+
+  const params = new URLSearchParams({ url, date, source, timeZone: localTimeZone() })
+  const response = await fetch(`/api/ics?${params}`)
+  const data = await response.json().catch(() => null)
+  if (!response.ok) throw new Error(data?.error ?? `Calendar link could not be read (${response.status})`)
+  return data?.items ?? []
 }
 
 export async function fetchIcsEvents({ url, source = 'Apple', date = todayKey(), proxyUrl = '' }) {
   if (!url) return []
-  const text = await readFeedAsText(url, proxyUrl)
-  if (text.trim().startsWith('{')) {
-    const data = JSON.parse(text)
-    return (data.items ?? []).map((item) => normalizeEvent({ ...item, source }))
-  }
-  return parseIcs(text, source, date)
+  const items = await itemsFromIcsService({ url, date, source, proxyUrl })
+  return items.map((item) => normalizeEvent({ ...item, source }))
 }
 
 export async function fetchCaldavEvents({ proxyUrl, calendarUrl, date = todayKey(), source = 'Apple' }) {
@@ -490,7 +309,7 @@ export async function fetchCaldavEvents({ proxyUrl, calendarUrl, date = todayKey
   const response = await fetch(proxyUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ provider: 'caldav', calendarUrl, date }),
+    body: JSON.stringify({ provider: 'caldav', calendarUrl, date, timeZone: localTimeZone() }),
   })
   if (!response.ok) throw new Error(`CalDAV proxy could not be read (${response.status})`)
   const contentType = response.headers.get('Content-Type') ?? ''

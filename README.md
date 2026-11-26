@@ -69,7 +69,7 @@ This setting only affects which news stories get ranked higher and how they're s
    - Build command: `npm run build`
    - Output directory: `dist`
    - Node version: 22 (set `NODE_VERSION=22` if needed)
-4. Deploy. Cloudflare automatically serves `functions/api/rss.js` at `/api/rss`.
+4. Deploy. Cloudflare automatically serves `functions/api/rss.js` at `/api/rss` and `functions/api/ics.js` at `/api/ics`. The ICS endpoint fetches read-only calendar links for you, so the browser's CORS rules don't get in the way.
 
 You can also deploy from the command line with `npx wrangler pages deploy dist --project-name=briefr`.
 
@@ -90,6 +90,8 @@ The RSS endpoint is stateless. It checks that feed URLs are public `http`/`https
 | `src/lib/rssService.js` | Reads the selected feeds |
 | `api/rssShared.js` | Shared feed parsing and URL checks |
 | `functions/api/rss.js` | The Cloudflare Pages feed endpoint |
+| `functions/api/ics.js` | The Cloudflare Pages calendar-link proxy |
+| `api/icsShared.js` | Shared ICS parsing and URL checks |
 | `public/favicon.svg` | The Briefr mark |
 
 Made for slow mornings, not dashboards that shout.
