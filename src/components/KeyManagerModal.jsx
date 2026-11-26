@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
-  Check,
   ChevronDown,
   Database,
   Eye,
@@ -14,11 +13,9 @@ import {
   Play,
   Plus,
   RotateCcw,
-  Server,
   Trash2,
   X,
 } from 'lucide-react'
-import { Badge } from './ui.jsx'
 import ProviderGuides from './ProviderGuides.jsx'
 import PrivacyPanel from './PrivacyPanel.jsx'
 import { PROVIDER_CONFIG, getKeyStatus, markReady } from '../lib/llmRotator.js'
@@ -99,8 +96,8 @@ export function KeyEditor({ keys, onChange, onPing, onSimulateRateLimit, compact
   }
 
   return (
-    <div className={compact ? '' : 'mt-4 rounded-xl border border-[#E4E4E7] bg-white p-4'}>
-      {!compact && <p className="text-[12px] font-semibold text-[#09090B]">Keys you've added</p>}
+    <div className={compact ? '' : 'mt-5 border-t border-[var(--line)] pt-5'}>
+      {!compact && <p className="text-[0.875rem] font-semibold text-[var(--ink)]">Keys you've added</p>}
 
       <div className="mt-2.5 flex flex-wrap gap-1.5">
         {Object.entries(PROVIDER_CONFIG).filter(([id]) => id !== 'ollama').map(([id, config]) => (
@@ -108,10 +105,11 @@ export function KeyEditor({ keys, onChange, onPing, onSimulateRateLimit, compact
             key={id}
             type="button"
             onClick={() => chooseProvider(id)}
-            className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
+            aria-pressed={provider === id}
+            className={`inline-flex min-h-12 items-center border-b-2 px-2 text-[0.875rem] font-semibold transition-colors ${
               provider === id
-                ? 'border-[#4F46E5] bg-[#EEF2FF] text-[#4F46E5]'
-                : 'border-[#E4E4E7] text-[#71717A] hover:text-[#09090B]'
+                ? 'border-[var(--accent)] text-[var(--accent)]'
+                : 'border-transparent text-[var(--muted)] hover:text-[var(--ink)]'
             }`}
           >
             {config.label}
@@ -127,13 +125,13 @@ export function KeyEditor({ keys, onChange, onPing, onSimulateRateLimit, compact
             onChange={(event) => setApiKey(event.target.value)}
             onKeyDown={(event) => event.key === 'Enter' && addKey()}
             placeholder={provider === 'ollama' ? 'Not needed for a local model' : 'Paste the key here'}
-            className="w-full rounded-lg border border-[#E4E4E7] py-2 pl-3 pr-9 font-mono text-[12px] placeholder:font-sans placeholder:text-[#A1A1AA] focus:border-[#A5B4FC] focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/10"
+            className="field min-h-12 pr-12 font-mono placeholder:font-sans"
           />
           <button
             type="button"
             onClick={() => setShowKey((value) => !value)}
             aria-label={showKey ? 'Hide key' : 'Show key'}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-[#A1A1AA] hover:text-[#52525B]"
+            className="absolute right-0 top-1/2 inline-flex min-h-12 min-w-12 -translate-y-1/2 items-center justify-center text-[var(--faint)] hover:text-[var(--ink)]"
           >
             {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
@@ -143,7 +141,7 @@ export function KeyEditor({ keys, onChange, onPing, onSimulateRateLimit, compact
           onChange={(event) => setLabel(event.target.value)}
           onKeyDown={(event) => event.key === 'Enter' && addKey()}
           placeholder="Name (optional)"
-          className="w-full rounded-lg border border-[#E4E4E7] px-3 py-2 text-[12px] placeholder:text-[#A1A1AA] focus:border-[#A5B4FC] focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/10"
+          className="field min-h-12"
         />
       </div>
 
@@ -153,37 +151,43 @@ export function KeyEditor({ keys, onChange, onPing, onSimulateRateLimit, compact
           onChange={(event) => setBaseUrl(event.target.value)}
           placeholder="Service address"
           aria-label="Service address"
-          className="min-w-0 flex-1 rounded-lg border border-[#E4E4E7] px-3 py-2 font-mono text-[11px] text-[#52525B] focus:border-[#A5B4FC] focus:outline-none"
+          className="field min-h-12 min-w-0 flex-1 font-mono"
         />
         <button
           type="button"
           onClick={addKey}
           disabled={provider !== 'ollama' && !apiKey.trim()}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-[#4F46E5] px-3 py-2 text-[11px] font-semibold text-white hover:bg-[#4338CA] disabled:opacity-40"
+          className="primary-button disabled:opacity-40"
         >
           <Plus size={13} /> Add this key
         </button>
       </div>
 
       {keys.length > 0 && (
-        <div className="mt-4 space-y-2 border-t border-[#F4F4F5] pt-3">
+        <ol className="mt-4 border-t border-[var(--line)] pt-2">
           {keys.map((key, index) => {
             const status = getKeyStatus(key, now)
             return (
-              <div key={key.id} className="rounded-lg border border-[#F4F4F5] bg-[#FAFAFA] px-2.5 py-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="tnum flex size-5 shrink-0 items-center justify-center rounded bg-white text-[10px] font-bold text-[#A1A1AA] ring-1 ring-[#E4E4E7]">
-                    {index + 1}
+              <li key={key.id} className="border-b border-[var(--line)] py-4 last:border-0">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <span className="text-[0.9375rem] font-semibold text-[var(--ink)]">
+                    <span className="metadata tnum mr-2">{index + 1}.</span>
+                    {key.label}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-[#3F3F46]">{key.label}</span>
-                  <Badge tone={STATUS_TONES[status]}>{statusLabel(key, now)}</Badge>
+                  <span className="metadata">{statusLabel(key, now)}</span>
+                </div>
+                <p className="metadata mt-1 truncate font-mono">
+                  {key.provider} · {key.baseUrl}
+                  {key.model ? ` · ${key.model}` : ''}
+                </p>
+                {key.lastError && <p className="metadata mt-1 text-[var(--danger)]">{key.lastError}</p>}
+                <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-1">
                   <button
                     type="button"
                     onClick={() => ping(key)}
-                    aria-label={`Try this key: ${key.label}`}
-                    className="inline-flex min-h-9 items-center gap-1 rounded-md border border-[#E4E4E7] bg-white px-2 text-[10px] font-semibold text-[#4F46E5] hover:bg-[#EEF2FF]"
+                    className="inline-flex min-h-12 items-center gap-1.5 px-2 text-[0.8125rem] font-semibold text-[var(--accent)] hover:underline"
                   >
-                    {testingId === key.id ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+                    {testingId === key.id ? <Loader2 size={13} className="animate-spin" aria-hidden="true" /> : <Play size={13} aria-hidden="true" />}
                     Try this key
                   </button>
                   <button
@@ -191,78 +195,67 @@ export function KeyEditor({ keys, onChange, onPing, onSimulateRateLimit, compact
                     onClick={() => moveKey(index, -1)}
                     disabled={index === 0}
                     aria-label={`Move ${key.label} up`}
-                    title="Move up in the backup pool"
-                    className="rounded-md p-1 text-[#71717A] hover:bg-white hover:text-[#4F46E5] disabled:opacity-30"
+                    className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-md text-[var(--muted)] hover:bg-[var(--paper)] disabled:opacity-30"
                   >
-                    <ArrowUp size={13} />
+                    <ArrowUp size={15} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
                     onClick={() => moveKey(index, 1)}
                     disabled={index === keys.length - 1}
                     aria-label={`Move ${key.label} down`}
-                    title="Move down in the backup pool"
-                    className="rounded-md p-1 text-[#71717A] hover:bg-white hover:text-[#4F46E5] disabled:opacity-30"
+                    className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-md text-[var(--muted)] hover:bg-[var(--paper)] disabled:opacity-30"
                   >
-                    <ArrowDown size={13} />
+                    <ArrowDown size={15} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
                     onClick={() => onSimulateRateLimit(key.id, false)}
-                    title="Simulate a temporary 429"
-                    aria-label={`Simulate rate limit on ${key.label}`}
-                    className="rounded-md p-1 text-[#71717A] hover:bg-white hover:text-[#B45309]"
+                    aria-label={`Simulate a rate limit on ${key.label}`}
+                    className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-md text-[var(--muted)] hover:bg-[var(--paper)] hover:text-[var(--warning)]"
                   >
-                    <AlertTriangle size={13} />
+                    <AlertTriangle size={15} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
                     onClick={() => onSimulateRateLimit(key.id, true)}
-                    title="Simulate a daily quota 429"
-                    aria-label={`Simulate daily cap on ${key.label}`}
-                    className="rounded-md p-1 text-[#71717A] hover:bg-white hover:text-[#BE123C]"
+                    aria-label={`Simulate a daily cap on ${key.label}`}
+                    className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-md text-[var(--muted)] hover:bg-[var(--paper)] hover:text-[var(--danger)]"
                   >
-                    <Database size={13} />
+                    <Database size={15} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
                     onClick={() => onChange(markReady(keys, key.id))}
-                    title="Reset status"
                     aria-label={`Reset status of ${key.label}`}
-                    className="rounded-md p-1 text-[#71717A] hover:bg-white hover:text-[#047857]"
+                    className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-md text-[var(--muted)] hover:bg-[var(--paper)] hover:text-[var(--success)]"
                   >
-                    <RotateCcw size={13} />
+                    <RotateCcw size={15} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
                     onClick={() => onChange(keys.filter((item) => item.id !== key.id))}
-                    title="Remove key"
                     aria-label={`Remove ${key.label}`}
-                    className="rounded-md p-1 text-[#71717A] hover:bg-white hover:text-[#BE123C]"
+                    className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-md text-[var(--muted)] hover:bg-[var(--paper)] hover:text-[var(--danger)]"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={15} aria-hidden="true" />
                   </button>
                 </div>
-                <p className="mt-1 truncate font-mono text-[10px] text-[#A1A1AA]">
-                  {key.provider} · {key.baseUrl}
-                  {key.model ? ` · ${key.model}` : ''}
-                </p>
-                {key.lastError && <p className="mt-1 text-[10px] text-[#BE123C]">{key.lastError}</p>}
-              </div>
+              </li>
             )
           })}
-        </div>
+        </ol>
       )}
 
       {!compact && (
-        <p className="mt-3 flex items-start gap-1.5 text-[10px] leading-snug text-[#A1A1AA]">
+        <p className="mt-3 flex items-start gap-1.5 text-[0.75rem] leading-snug text-[var(--faint)]">
           <Lock size={11} className="mt-0.5 shrink-0" />
           Keys stay in localStorage on this device and are never sent to a Briefr server. Free tiers can
           have usage limits and privacy trade-offs — avoid sensitive information in prompts. Briefr
           quietly moves to the next key after a rate limit.
         </p>
       )}
-      {notice && <p className="mt-2 text-[11px] font-medium text-[#047857]">{notice}</p>}
+      {notice && <p className="mt-2 text-[0.8125rem] font-medium text-[var(--success)]">{notice}</p>}
     </div>
   )
 }
@@ -273,6 +266,7 @@ export default function KeyManagerModal({
   onClose,
   onPing,
   onSimulateRateLimit,
+  onToggleRateLimit,
   meta,
   cacheKey,
   onForceRefresh,
@@ -324,7 +318,7 @@ export default function KeyManagerModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#09090B]/45 p-3 backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(28,27,25,0.5)] p-3 sm:p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
@@ -333,36 +327,32 @@ export default function KeyManagerModal({
         role="dialog"
         aria-modal="true"
         aria-label="API keys and settings"
-        className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white shadow-2xl"
+        className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)]"
       >
-        <div className="flex items-start justify-between gap-3 border-b border-[#F4F4F5] px-5 py-4 sm:px-7">
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--line)] px-5 py-5 sm:px-7">
           <div>
-            <h2 className="text-[15px] font-bold tracking-tight text-[#09090B]">Your AI keys</h2>
-            <p className="text-[11px] text-[#71717A]">
-              Add as many free keys as you like. If one hits its limit, Briefr quietly uses the next.
-            </p>
+            <h2 className="modal-title">Keys & settings</h2>
+            <p className="metadata mt-1">Add as many keys as you like. If one hits its limit, Briefr uses the next.</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close key manager"
-            className="rounded-lg p-1.5 text-[#A1A1AA] hover:bg-[#F4F4F5] hover:text-[#52525B]"
+            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg text-[var(--faint)] hover:bg-[var(--paper)] hover:text-[var(--ink)]"
           >
-            <X size={17} />
+            <X size={18} />
           </button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7">
-          <div className="mt-5 rounded-xl border border-[#E4E4E7] bg-white p-4">
-            <p className="text-[12px] font-semibold text-[#09090B]">News lens (optional)</p>
-            <p className="mt-1 text-[11px] leading-snug text-[#71717A]">
-              Choose how Briefr frames news. This never touches weather or your schedule.
-            </p>
+          <div className="mt-6 border-t border-[var(--line)] pt-5">
+            <h3 className="reading-title">News lens</h3>
+            <p className="metadata mt-1">Changes which stories rise to the top. Weather and your schedule stay untouched.</p>
             <select
               aria-label="Political news lens"
               value={prefs?.politicalLens ?? 'Neutral / Balanced'}
               onChange={(event) => onPrefsChange({ politicalLens: event.target.value })}
-              className="mt-3 w-full rounded-lg border border-[#E4E4E7] px-3 py-2 text-[11px] focus:border-[#A5B4FC] focus:outline-none"
+              className="field mt-3 min-h-12"
             >
               {POLITICAL_LENSES.map((lens) => (
                 <option key={lens} value={lens}>{lens}</option>
@@ -378,8 +368,9 @@ export default function KeyManagerModal({
                         key={mode}
                         type="button"
                         onClick={() => onPrefsChange({ coverageMode: mode })}
-                        className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold ${
-                          active ? 'border-[#4F46E5] bg-[#EEF2FF] text-[#4F46E5]' : 'border-[#E4E4E7] text-[#71717A]'
+                        aria-pressed={active}
+                        className={`inline-flex min-h-12 items-center border-b-2 px-2 text-[0.875rem] font-semibold ${
+                          active ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:text-[var(--ink)]'
                         }`}
                       >
                         {mode}
@@ -388,9 +379,25 @@ export default function KeyManagerModal({
                   })}
                 </div>
               )}
-            <p className="mt-2 text-[10px] leading-snug text-[#A1A1AA]">
-              Saved with your account preferences. Switch back any time.
-            </p>
+            <p className="metadata mt-2">Saved with your preferences. Switch back any time.</p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => onPrefsChange({ soundAlerts: prefs?.soundAlerts === false })}
+                aria-pressed={prefs?.soundAlerts !== false}
+                className="quiet-button"
+              >
+                Alert sound: {prefs?.soundAlerts === false ? 'Off' : 'On'}
+              </button>
+              <button
+                type="button"
+                onClick={onToggleRateLimit}
+                aria-pressed={Boolean(prefs?.rateLimitSim)}
+                className="quiet-button"
+              >
+                {prefs?.rateLimitSim ? 'Stop rate-limit test' : 'Simulate a rate limit'}
+              </button>
+            </div>
           </div>
 
           <div className="mt-5">
@@ -410,36 +417,24 @@ export default function KeyManagerModal({
             />
           </div>
 
-          <p className="mb-2 mt-5 text-[12px] font-semibold text-[#09090B]">No key yet? Here's how to get one</p>
+          <p className="mb-2 mt-5 text-[0.875rem] font-semibold text-[var(--ink)]">No key yet? Here's how to get one</p>
           <ProviderGuides />
 
-          <div className="mt-5 rounded-xl border border-[#E4E4E7] bg-[#FCFCFD] p-4">
-            <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[#09090B]">
-              <Server size={13} className="text-[#4F46E5]" /> Today's briefing
-            </p>
+          <div className="mt-6 border-t border-[var(--line)] pt-5">
+            <p className="text-[0.875rem] font-semibold text-[var(--ink)]">Today's briefing</p>
             {meta ? (
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[#52525B]">
-                <Badge tone="indigo">{meta.provider}</Badge>
-                <span className="font-mono">{meta.model}</span>
-                <span className="text-[#A1A1AA]">via {meta.keyLabel}</span>
-                {meta.rotatedCount > 0 && <Badge tone="amber">{meta.rotatedCount} rotations</Badge>}
-                {meta.cached && <Badge tone="emerald">Cached today</Badge>}
-                {meta.rotationNote && !meta.cached && (
-                  <p className="w-full text-[10px] leading-snug text-[#4F46E5]">{meta.rotationNote}</p>
-                )}
-              </div>
-            ) : (
-              <p className="mt-2 text-[11px] text-[#71717A]">
-                No AI key connected yet. We're using built-in outfit advice.
+              <p className="metadata mt-2">
+                {meta.provider} · {meta.model} via {meta.keyLabel}
+                {meta.rotatedCount > 0 && ` · ${meta.rotatedCount} rotations`}
+                {meta.cached && ' · saved earlier'}
+                {meta.rotationNote && ` · ${meta.rotationNote}`}
               </p>
+            ) : (
+              <p className="metadata mt-2">Using built-in outfit advice.</p>
             )}
-            <p className="mt-2 truncate font-mono text-[10px] text-[#A1A1AA]">Saved for today as: {cacheKey}</p>
-            <button
-              type="button"
-              onClick={onForceRefresh}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-[#E4E4E7] px-2.5 py-1.5 text-[11px] font-semibold text-[#4F46E5] hover:bg-[#EEF2FF]"
-            >
-              <RotateCcw size={12} /> Get a fresh version now
+            <p className="metadata mt-2 truncate font-mono">Saved as: {cacheKey}</p>
+            <button type="button" onClick={onForceRefresh} className="quiet-button mt-4">
+              Get a fresh version now
             </button>
           </div>
 
@@ -450,40 +445,39 @@ export default function KeyManagerModal({
             onSimulateRateLimit={onSimulateRateLimit}
           />
 
-          <div className="mt-4 overflow-hidden rounded-xl border border-[#E4E4E7] bg-white">
+          <div className="mt-5 border-t border-[var(--line)] pt-5">
             <button
               type="button"
               onClick={() => setShowAdvanced((value) => !value)}
               aria-expanded={showAdvanced}
-              className="flex min-h-11 w-full items-center gap-2 px-4 py-3 text-left text-[12px] font-semibold text-[#3F3F46] hover:bg-[#FAFAFA]"
+              className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-[0.875rem] font-semibold text-[var(--ink-2)] hover:bg-[var(--paper)]"
             >
               <ChevronDown size={14} className={`shrink-0 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
               Advanced: run a model on your computer
-              <Badge tone="neutral" className="ml-auto">Optional</Badge>
             </button>
             {showAdvanced && (
-              <div className="space-y-3 border-t border-[#F4F4F5] px-4 py-4">
-                <p className="text-[11px] leading-relaxed text-[#52525B]">
+              <div className="space-y-3 border-t border-[var(--line-soft)] px-4 py-4">
+                <p className="text-[0.8125rem] leading-relaxed text-[var(--muted)]">
                   Already using Ollama on your computer? Add it here — no account or key needed.
                   Everything stays on your machine.
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="text-[10px] font-semibold text-[#71717A]">
+                  <label className="text-[0.75rem] font-semibold text-[var(--muted)]">
                     Address
                     <input
                       value={localBaseUrl}
                       onChange={(event) => setLocalBaseUrl(event.target.value)}
                       placeholder="http://localhost:11434"
-                      className="mt-1 w-full rounded-lg border border-[#E4E4E7] px-2.5 py-2 font-mono text-[11px] font-normal text-[#3F3F46]"
+                      className="field mt-1 min-h-12 font-mono"
                     />
                   </label>
-                  <label className="text-[10px] font-semibold text-[#71717A]">
+                  <label className="text-[0.75rem] font-semibold text-[var(--muted)]">
                     Model name
                     <input
                       value={localModel}
                       onChange={(event) => setLocalModel(event.target.value)}
                       placeholder="llama3.1"
-                      className="mt-1 w-full rounded-lg border border-[#E4E4E7] px-2.5 py-2 font-mono text-[11px] font-normal text-[#3F3F46]"
+                      className="field mt-1 min-h-12 font-mono"
                     />
                   </label>
                 </div>
@@ -491,11 +485,11 @@ export default function KeyManagerModal({
                   type="button"
                   onClick={addLocalModel}
                   disabled={!localModel.trim()}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[#4F46E5] px-3 py-2 text-[11px] font-semibold text-[#4F46E5] hover:bg-[#EEF2FF] disabled:opacity-40"
+                  className="quiet-button disabled:opacity-40"
                 >
                   <Plus size={12} /> Add this local model
                 </button>
-                <p className="flex items-start gap-1.5 rounded-lg bg-[#FFFBEB] px-3 py-2 text-[10px] leading-relaxed text-[#92400E]">
+                <p className="flex items-start gap-1.5 rounded-lg bg-[var(--warning-soft)] px-3 py-2 text-[0.75rem] leading-relaxed text-[var(--warning)]">
                   <Info size={12} className="mt-0.5 shrink-0" />
                   Your browser can only reach Ollama if Ollama allows this site. Start Ollama with{' '}
                   <code className="font-mono">OLLAMA_ORIGINS</code> set to your site address (for local
@@ -507,26 +501,14 @@ export default function KeyManagerModal({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#F4F4F5] bg-[#FCFCFD] px-5 py-3.5 sm:px-7">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-[#71717A]">
-              <Check size={13} className="text-[#10B981]" /> {keys.length} key{keys.length === 1 ? '' : 's'} saved locally
-            </span>
-            <button
-              type="button"
-              onClick={onResetDemo}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[#FECDD3] px-2.5 py-2 text-[11px] font-semibold text-[#BE123C] hover:bg-[#FFF1F2] sm:min-h-9"
-            >
-              <Trash2 size={12} /> Start fresh (clear saved keys)
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] bg-[var(--paper)] px-5 py-4 sm:px-7">
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="metadata">{keys.length} key{keys.length === 1 ? '' : 's'} saved on this device</span>
+            <button type="button" onClick={onResetDemo} className="danger-button">
+              <Trash2 size={14} aria-hidden="true" /> Start fresh
             </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-11 rounded-lg bg-[#09090B] px-3.5 py-2 text-[11px] font-semibold text-white hover:bg-[#27272A] sm:min-h-9"
-          >
-            Done
-          </button>
+          <button type="button" onClick={onClose} className="primary-button">Done</button>
         </div>
       </div>
     </div>

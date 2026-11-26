@@ -1,18 +1,17 @@
 import { Database, Download, Lock, ShieldCheck, Trash2, X } from 'lucide-react'
-import { Badge } from './ui.jsx'
 
 function Row({ label, detail, onDisconnect, disconnectLabel = 'Disconnect' }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[#FAFAFA] px-2.5 py-2">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[var(--paper)] px-2.5 py-2">
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-semibold text-[#3F3F46]">{label}</p>
-        {detail && <p className="mt-0.5 text-[10px] leading-snug text-[#A1A1AA]">{detail}</p>}
+        <p className="text-[0.8125rem] font-semibold text-[var(--ink-2)]">{label}</p>
+        {detail && <p className="mt-0.5 text-[0.75rem] leading-snug text-[var(--faint)]">{detail}</p>}
       </div>
       {onDisconnect && (
         <button
           type="button"
           onClick={onDisconnect}
-          className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-[#E4E4E7] px-2 text-[10px] font-semibold text-[#BE123C] hover:bg-white"
+          className="inline-flex min-h-12 items-center gap-1 rounded-lg border border-[var(--line)] px-2 text-[0.75rem] font-semibold text-[var(--danger)] hover:bg-white"
         >
           <X size={11} /> {disconnectLabel}
         </button>
@@ -38,11 +37,11 @@ export default function PrivacyPanel({
   const ics = connections.ics ?? []
 
   return (
-    <div className="rounded-xl border border-[#E4E4E7] bg-white p-4">
-      <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[#09090B]">
-        <ShieldCheck size={13} className="text-[#4F46E5]" /> Privacy & data
+    <div className="border-t border-[var(--line)] pt-5">
+      <p className="flex items-center gap-1.5 text-[0.875rem] font-semibold text-[var(--ink)]">
+        <ShieldCheck size={13} className="text-[var(--accent)]" /> Privacy & data
       </p>
-      <p className="mt-1 text-[11px] leading-snug text-[#71717A]">
+      <p className="mt-1 text-[0.8125rem] leading-snug text-[var(--muted)]">
         Here's exactly what Briefr can see. Nothing is sent to a Briefr server — there isn't one.
       </p>
 
@@ -90,13 +89,13 @@ export default function PrivacyPanel({
       </div>
 
       {account && (
-        <p className="mt-3 text-[10px] text-[#A1A1AA]">
+        <p className="mt-3 text-[0.75rem] text-[var(--faint)]">
           {account.cloud ? 'Preferences sync with your account.' : 'Local-only mode: nothing leaves this device.'}{' '}
           {account.email || 'This device'}
         </p>
       )}
 
-      <p className="mt-3 text-[10px] leading-snug text-[#A1A1AA]">
+      <p className="mt-3 text-[0.75rem] leading-snug text-[var(--faint)]">
         Calendar titles are never written to a server log. API keys and calendar tokens stay in localStorage.
       </p>
 
@@ -104,33 +103,33 @@ export default function PrivacyPanel({
         <button
           type="button"
           onClick={onClearCache}
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#E4E4E7] px-2.5 text-[11px] font-semibold text-[#4F46E5] hover:bg-[#EEF2FF]"
+          className="inline-flex min-h-12 items-center gap-1.5 rounded-lg border border-[var(--line)] px-2.5 text-[0.8125rem] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"
         >
           <Database size={12} /> Clear cached digest
         </button>
         <button
           type="button"
           onClick={onExportData}
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#E4E4E7] px-2.5 text-[11px] font-semibold text-[#3F3F46] hover:bg-[#FAFAFA]"
+          className="inline-flex min-h-12 items-center gap-1.5 rounded-lg border border-[var(--line)] px-2.5 text-[0.8125rem] font-semibold text-[var(--ink-2)] hover:bg-[var(--paper)]"
         >
           <Download size={12} /> Export my data
         </button>
         <button
           type="button"
           onClick={onDeleteData}
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#FECDD3] px-2.5 text-[11px] font-semibold text-[#BE123C] hover:bg-[#FFF1F2]"
+          className="inline-flex min-h-12 items-center gap-1.5 rounded-lg border border-[var(--danger-line)] px-2.5 text-[0.8125rem] font-semibold text-[var(--danger)] hover:bg-[var(--danger-soft)]"
         >
           <Trash2 size={12} /> Delete my data
         </button>
         <button
           type="button"
           onClick={onWipeLocalData}
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#E4E4E7] px-2.5 text-[11px] font-semibold text-[#71717A] hover:bg-[#FAFAFA]"
+          className="inline-flex min-h-12 items-center gap-1.5 rounded-lg border border-[var(--line)] px-2.5 text-[0.8125rem] font-semibold text-[var(--muted)] hover:bg-[var(--paper)]"
         >
           <Lock size={12} /> Disconnect & wipe local data
         </button>
       </div>
-      <Badge tone="neutral" className="mt-3">No secrets in VITE_* variables</Badge>
+      <p className="metadata mt-3">No secrets in VITE_* variables</p>
     </div>
   )
 }

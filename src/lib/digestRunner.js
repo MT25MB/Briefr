@@ -68,8 +68,9 @@ export async function runMorningBriefing({ prefs, keys = [], forceRefresh = fals
   let activeKeys = keys
 
   if (activeKeys.length) {
+    let outfitRun = null
     try {
-      const outfitRun = await runWithRotation({
+      outfitRun = await runWithRotation({
         keys: activeKeys,
         prompt: buildWeatherOutfitPrompt({
           weatherSummary: summarizeWeather(forecast.weather),
@@ -90,7 +91,13 @@ export async function runMorningBriefing({ prefs, keys = [], forceRefresh = fals
         wardrobeMeta = { source: 'ai', loading: false, ...outfitRun.meta }
       }
     } catch {
-      // Keep the deterministic wardrobe.
+      // Keep the deterministic wardrobe, but explain why the keys were skipped.
+      wardrobeMeta = {
+        source: 'fallback',
+        loading: false,
+        ...(outfitRun?.meta ?? {}),
+        rotationNote: outfitRun?.meta?.rotationNote ?? 'Every key was busy — using built-in advice.',
+      }
     }
     const storedKeys = loadKeys()
     activeKeys = storedKeys.length ? storedKeys : activeKeys

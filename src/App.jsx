@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertTriangle, ArrowRight, Check, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Check, X } from 'lucide-react'
 import TopNav from './components/TopNav.jsx'
 import WeatherOutfitCard from './components/WeatherOutfitCard.jsx'
 import NewsFeedCard from './components/NewsFeedCard.jsx'
@@ -27,6 +27,7 @@ import {
 import { applyRateLimit, getKeyStatus, isKeyEligible, pingKey, runWithRotation } from './lib/llmRotator.js'
 import { buildFallbackWardrobe, buildTriagePrompt, triageLocally } from './lib/prompts.js'
 import { buildBriefingScript } from './lib/audioBriefing.js'
+import { playAlertTone } from './lib/alertSound.js'
 import { MOCK_NEWS_ITEMS, runMorningBriefing } from './lib/digestRunner.js'
 import { bootstrapAuth, deleteAccount, getCurrentAccount, onAuthChange } from './lib/accountService.js'
 import { clearCachedDigest, exportAccountData, loadCloudData, saveCloudData } from './lib/db.js'
@@ -39,9 +40,9 @@ import {
 } from './lib/calendarService.js'
 
 const TOAST_TONES = {
-  ok: 'border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]',
-  warn: 'border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]',
-  neutral: 'border-[#E4E4E7] bg-white text-[#3F3F46]',
+  ok: 'text-[var(--success)]',
+  warn: 'text-[var(--warning)]',
+  neutral: 'text-[var(--ink-2)]',
 }
 
 const SYSTEM_PROMPT =
@@ -150,9 +151,10 @@ export default function App() {
 
   useEffect(() => {
     if (!toast) return undefined
+    if (toast.tone === 'warn' && prefs.soundAlerts !== false) playAlertTone()
     const timeout = window.setTimeout(() => setToast(null), 4200)
     return () => window.clearTimeout(timeout)
-  }, [toast])
+  }, [toast, prefs.soundAlerts])
 
   useEffect(
     () => () => {
@@ -266,7 +268,7 @@ export default function App() {
         setWeather(result.weather)
         setWeatherMeta(result.weatherMeta)
         setWardrobe(result.wardrobe)
-        setRotationMeta(result.wardrobeMeta.source === 'ai' ? result.wardrobeMeta : null)
+        setRotationMeta(['ai', 'fallback'].includes(result.wardrobeMeta.source) ? result.wardrobeMeta : null)
         setRawNews(result.rawNews)
         setNewsMeta(result.newsMeta)
         setNewsDigest(result.newsDigest)
@@ -514,7 +516,7 @@ export default function App() {
   const showSetupBanner = !prefs.onboardingDone && !bannerDismissed
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
+    <div className="min-h-screen bg-[var(--paper)]">
       <TopNav
         dateLabel={digest.dateLabel}
         headline={wardrobe.headline || digest.headline}
@@ -527,8 +529,6 @@ export default function App() {
         onStop={stopBriefing}
         onRefresh={refreshDigest}
         refreshing={refreshing || weatherMeta.loading}
-        rateLimitSim={prefs.rateLimitSim}
-        onToggleRateLimit={toggleRateLimitSim}
         onOpenSettings={() => setShowKeyManager(true)}
         account={account}
         onOpenAccount={() => setShowAccount(true)}
@@ -538,49 +538,34 @@ export default function App() {
         <RotationStatusBanner meta={rotationMeta} keys={keys} onManage={() => setShowKeyManager(true)} />
 
         {showSetupBanner && (
-          <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#C7D2FE] bg-[#EEF2FF] px-4 py-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-white text-[#4F46E5]">
-              <Sparkles size={16} />
-            </span>
+          <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-3 py-4">
             <div className="min-w-0 flex-1">
-              <p className="text-[12px] font-semibold text-[#3730A3]">New here? Set up Briefr in 3 quick steps.</p>
-              <p className="text-[11px] text-[#6366F1]">
-                Take your time. The weather and outfit advice work with no keys at all.
-              </p>
+              <p className="reading-title">Make this morning yours in three small steps.</p>
+              <p className="metadata mt-1">Weather and outfit advice already work — keys are optional.</p>
             </div>
             <button
               type="button"
               onClick={() => setShowWizard(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#4F46E5] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#4338CA]"
+              className="primary-button"
             >
-              Start setup <ArrowRight size={12} />
+              Start setup <ArrowRight size={14} />
             </button>
             <button
               type="button"
               onClick={() => setBannerDismissed(true)}
               aria-label="Dismiss setup reminder"
-              className="rounded-lg p-1 text-[#818CF8] hover:bg-white/70 hover:text-[#3730A3]"
+              className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg text-[var(--faint)] hover:bg-[var(--paper)] hover:text-[var(--ink)]"
             >
-              <X size={15} />
+              <X size={16} />
             </button>
           </div>
         )}
 
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-[24px] font-semibold tracking-[-0.035em] text-[#09090B] sm:text-[27px]">
-              Good morning. Here's your day.
-            </h1>
-            <p className="mt-1 text-[12px] text-[#71717A]">
-              Weather, news, and what needs you — all in one calm place.
-            </p>
-          </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#E4E4E7] bg-white px-3 py-1.5 text-[11px] font-medium text-[#71717A]">
-            <span className="size-1.5 rounded-full bg-[#10B981]" />
-            {weatherMeta.source === 'live' ? 'Live weather' : 'Sample weather'} ·{' '}
-            {keys.length ? `${keys.length} AI key${keys.length === 1 ? '' : 's'}` : 'No AI key'} ·{' '}
-            {rotationMeta?.cached ? 'Saved today' : 'Fresh'}
-          </div>
+        <div className="mb-6">
+          <h1 className="editorial-title">Good morning.</h1>
+          <p className="body-copy mt-2 max-w-prose">
+            The weather, the news, and what needs you — in one quiet read.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
@@ -588,9 +573,6 @@ export default function App() {
             <WeatherOutfitCard
               weather={weather}
               wardrobe={wardrobe}
-              source={weatherMeta.source}
-              wardrobeSource={rotationMeta ? 'ai' : 'deterministic'}
-              loading={wardrobeLoading}
               error={weatherMeta.error}
               preferences={{
                 sensitivity: prefs.sensitivity,
@@ -621,6 +603,7 @@ export default function App() {
                 loading={calendarMeta.loading}
                 errors={calendarMeta.errors}
                 dayNotes={wardrobe.dayNotes ?? ''}
+                connected={calendarMeta.connected}
                 onConnect={() => setShowCalendars(true)}
               />
             </CardBoundary>
@@ -636,9 +619,9 @@ export default function App() {
           </div>
         </div>
 
-        <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-[#E4E4E7] pt-5 text-[10px] text-[#A1A1AA]">
-          <span className="font-semibold tracking-[-0.02em] text-[#71717A]">Briefr</span>
-          <span>Free weather · Your keys stay here · Nothing to pay</span>
+        <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 pt-5">
+          <span className="font-display text-[1.0625rem] font-semibold tracking-[-0.02em] text-[var(--muted)]">Briefr</span>
+          <p className="metadata">Free weather · Keys stay in this browser · Nothing to pay</p>
         </footer>
       </main>
 
@@ -659,6 +642,7 @@ export default function App() {
           onClose={() => setShowKeyManager(false)}
           onPing={handlePing}
           onSimulateRateLimit={simulateRateLimit}
+          onToggleRateLimit={toggleRateLimitSim}
           meta={rotationMeta}
           cacheKey={digestCacheKey(prefs)}
           onForceRefresh={refreshDigest}
@@ -695,18 +679,29 @@ export default function App() {
         />
       )}
 
-      {toast && (
-        <div
-          role="status"
-          className={`fixed bottom-5 right-5 z-[60] flex max-w-sm items-start gap-2 rounded-xl border px-3.5 py-2.5 text-[11px] font-medium shadow-lg ${TOAST_TONES[toast.tone] ?? TOAST_TONES.neutral}`}
-        >
-          {toast.tone === 'warn' ? <AlertTriangle size={14} className="mt-0.5 shrink-0" /> : <Check size={14} className="mt-0.5 shrink-0" />}
-          <span className="leading-snug">{toast.message}</span>
-          <button type="button" onClick={() => setToast(null)} aria-label="Dismiss" className="ml-1 opacity-60 hover:opacity-100">
-            <X size={13} />
-          </button>
-        </div>
-      )}
+      <div aria-live="polite" className="pointer-events-none fixed bottom-20 right-5 z-[60] max-w-sm lg:bottom-5">
+        {toast && (
+          <div
+            role="status"
+            className={`pointer-events-auto flex items-start gap-3 rounded-lg bg-[var(--surface)] px-4 py-3 text-[0.875rem] leading-snug ${TOAST_TONES[toast.tone] ?? TOAST_TONES.neutral}`}
+          >
+            {toast.tone === 'warn' ? (
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+            ) : (
+              <Check size={16} className="mt-0.5 shrink-0" />
+            )}
+            <span className="flex-1">{toast.message}</span>
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              aria-label="Dismiss message"
+              className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-md opacity-70 hover:opacity-100"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

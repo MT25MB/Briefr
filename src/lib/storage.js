@@ -51,6 +51,7 @@ export const COVERAGE_MODES = ['Aligned Lens', 'Balanced / Both Sides']
 export const DEFAULT_PREFS = {
   tone: 'Quick Bullets',
   rateLimitSim: false,
+  soundAlerts: true,
   onboardingDone: false,
   location: 'Brooklyn, NY',
   sensitivity: 'Runs Cold',

@@ -98,7 +98,7 @@ Both `VITE_*` values are bundled into browser JavaScript, so they must be publis
 - [ ] `npm run build`; confirm `dist/index.html`, `dist/favicon.svg`, `dist/_headers` and hashed assets exist. `functions/api/rss.js` and `functions/api/ics.js` stay at the repo root — Cloudflare adds them at deploy time.
 - [ ] Optional: create a Supabase project, run `supabase/schema.sql`, and set the two public variables from `.env.example`.
 - [ ] Deploy with `npx wrangler pages deploy dist --project-name=briefr` or connect the repo in the Cloudflare dashboard.
-- [ ] Test locally: choose local-only mode, then check Weather, News, Calendar and Inbox cards. Use **Try a rate limit** to confirm a provider failure leaves the rest of the page intact.
+- [ ] Test locally: choose local-only mode, then check Weather, News, Calendar and Inbox cards. In **Keys & settings**, use **Simulate a rate limit** to confirm a provider failure leaves the rest of the page intact.
 - [ ] Test cloud: sign up, change the news lens, add a calendar link, reload, and confirm settings come back.
 
 ## Project map

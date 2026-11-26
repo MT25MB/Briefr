@@ -56,7 +56,7 @@ export default function LocationSearch({ id = 'location', value, onChange }) {
       }}
     >
       <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A1A1AA]" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--faint)]" />
         <input
           id={id}
           value={query}
@@ -73,15 +73,15 @@ export default function LocationSearch({ id = 'location', value, onChange }) {
           aria-expanded={open}
           aria-autocomplete="list"
           placeholder="Start typing a city or ZIP"
-          className="w-full rounded-lg border border-[#E4E4E7] py-2 pl-9 pr-9 text-[12px] focus:border-[#A5B4FC] focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/10"
+          className="w-full rounded-lg border border-[var(--line)] py-2 pl-9 pr-9 text-[0.875rem] focus:border-[var(--accent-line)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
         />
-        {loading && <Loader2 size={14} className="absolute right-3 top-1/2 animate-spin text-[#A1A1AA]" />}
+        {loading && <Loader2 size={14} className="absolute right-3 top-1/2 animate-spin text-[var(--faint)]" />}
       </div>
 
       {open && (
         <div
           role="listbox"
-          className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-[#E4E4E7] bg-white shadow-lg"
+          className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-[var(--line)] bg-white "
         >
           {results.length ? (
             results.map((place) => (
@@ -91,24 +91,24 @@ export default function LocationSearch({ id = 'location', value, onChange }) {
                 role="option"
                 aria-selected={value === place.label}
                 onClick={() => select(place)}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[11px] hover:bg-[#EEF2FF]"
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[0.8125rem] hover:bg-[var(--accent-soft)]"
               >
-                <MapPin size={12} className="shrink-0 text-[#4F46E5]" />
-                <span className="min-w-0 flex-1 truncate text-[#3F3F46]">{place.label}</span>
-                <span className="tnum shrink-0 text-[10px] text-[#A1A1AA]">
+                <MapPin size={12} className="shrink-0 text-[var(--accent)]" />
+                <span className="min-w-0 flex-1 truncate text-[var(--ink-2)]">{place.label}</span>
+                <span className="tnum shrink-0 text-[0.75rem] text-[var(--faint)]">
                   {place.lat.toFixed(2)}, {place.lon.toFixed(2)}
                 </span>
               </button>
             ))
           ) : (
-            <p className="px-3 py-3 text-[11px] text-[#A1A1AA]">
+            <p className="px-3 py-3 text-[0.8125rem] text-[var(--faint)]">
               {error || (loading ? 'Looking up places…' : 'No matches yet — keep typing or use your own text.')}
             </p>
           )}
         </div>
       )}
 
-      <p className="mt-1.5 text-[10px] text-[#A1A1AA]">
+      <p className="mt-1.5 text-[0.75rem] text-[var(--faint)]">
         Pick a suggestion for the best forecast, or just type your own city or ZIP.
       </p>
     </div>
