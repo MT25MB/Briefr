@@ -37,6 +37,17 @@ export function copyAnonymousDataToScope(accountId) {
 
 export const TONES = ['Quick Bullets', 'Friendly', 'Direct']
 
+export const POLITICAL_LENSES = [
+  'Balanced / Neutral',
+  'Conservative / Republican',
+  'Liberal / Democratic',
+  'Libertarian',
+  'Independent / Centrist',
+  'Custom / No Political Filtering',
+]
+
+export const PERSPECTIVE_MODES = ['Cross-perspective', 'Mostly aligned']
+
 export const DEFAULT_PREFS = {
   tone: 'Quick Bullets',
   rateLimitSim: false,
@@ -46,6 +57,8 @@ export const DEFAULT_PREFS = {
   commute: 'Walk / Transit',
   topics: ['Local', 'Tech & AI'],
   feeds: [],
+  politicalLens: 'Balanced / Neutral',
+  perspectiveMode: 'Cross-perspective',
 }
 
 export const DEFAULT_CALENDARS = {
@@ -182,8 +195,17 @@ export function digestCacheKey({ location = '', tone = '', sensitivity = '', com
   return `${todayKey()}:${hash([location, tone, sensitivity, commute].join('|'))}`
 }
 
-export function newsCacheKey({ location = '', tone = '', topics = [], feeds = [] } = {}) {
-  return `${todayKey()}:news:${hash([location, tone, topics.join(','), feeds.join(',')].join('|'))}`
+export function newsCacheKey({
+  location = '',
+  tone = '',
+  topics = [],
+  feeds = [],
+  politicalLens = '',
+  perspectiveMode = '',
+} = {}) {
+  return `${todayKey()}:news:${hash(
+    [location, tone, topics.join(','), feeds.join(','), politicalLens, perspectiveMode].join('|'),
+  )}`
 }
 
 function loadCache() {

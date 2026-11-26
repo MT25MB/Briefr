@@ -54,6 +54,12 @@ These accounts live in this browser only. They are great for a shared computer, 
 
 In **Keys & settings → Privacy & permissions**, you can see every calendar connection, what Briefr reads, and wipe local data in one click. Calendar titles are never written to a server log. BYOK API keys stay in your browser and never ship in the app bundle. You can also download your data or delete your account and everything it saved from the account panel.
 
+## News lens (optional)
+
+If you'd like, set a general political lens during setup or in **Keys & settings**. You can choose Balanced / Neutral, Conservative / Republican, Liberal / Democratic, Libertarian, Independent / Centrist, or no political filtering at all. You can also ask for mostly aligned coverage or a short look at both sides when the feeds contain more than one view.
+
+This setting only affects which news stories get ranked higher and how they're summarized. It never changes weather, outfit advice, calendar events, or facts in a story. It's saved with your account preferences, and the News card has a one-click **Back to balanced** button.
+
 ## Deploy to Cloudflare Pages
 
 1. Push this repository to your GitHub account.

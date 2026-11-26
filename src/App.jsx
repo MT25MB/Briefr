@@ -508,6 +508,9 @@ export default function App() {
             meta={newsRankMeta}
             error={newsMeta.errors.length ? `${newsMeta.errors.length} feed(s) failed` : null}
             sourceCount={newsMeta.sourceCount}
+            politicalLens={prefs.politicalLens}
+            perspectiveMode={prefs.perspectiveMode}
+            onResetLens={() => updateSettings({ politicalLens: 'Balanced / Neutral', perspectiveMode: 'Cross-perspective' })}
           />
           <div className="space-y-5">
             <ScheduleCard
@@ -557,6 +560,8 @@ export default function App() {
           connections={calendars}
           onWipeLocalData={wipeLocalData}
           account={account}
+          prefs={prefs}
+          onPrefsChange={updateSettings}
         />
       )}
 

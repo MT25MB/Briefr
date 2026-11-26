@@ -22,6 +22,7 @@ import { KeyEditor } from './KeyManagerModal.jsx'
 import ProviderGuides from './ProviderGuides.jsx'
 import LocationSearch from './LocationSearch.jsx'
 import { TOPIC_PACKS } from '../lib/mockDigest.js'
+import { PERSPECTIVE_MODES, POLITICAL_LENSES } from '../lib/storage.js'
 
 const STEPS = ['Free AI keys', 'Your details', 'What you follow']
 const SENSITIVITIES = ['Runs Cold', 'Normal', 'Runs Warm']
@@ -252,6 +253,49 @@ export default function OnboardingWizard({
                     </button>
                   )
                 })}
+              </div>
+
+              <div className="mt-4 rounded-xl border border-[#E4E4E7] p-4">
+                <p className="text-[12px] font-semibold text-[#09090B]">News lens (optional)</p>
+                <p className="mt-1 text-[11px] leading-snug text-[#71717A]">
+                  If you want, tell Briefr how to frame the news. This only changes which stories get
+                  ranked higher and how they're summarized. Weather and schedule never change.
+                </p>
+                <select
+                  aria-label="Political news lens"
+                  value={settings.politicalLens ?? 'Balanced / Neutral'}
+                  onChange={(event) => onChange({ politicalLens: event.target.value })}
+                  className="mt-3 w-full rounded-lg border border-[#E4E4E7] px-3 py-2 text-[11px] focus:border-[#A5B4FC] focus:outline-none"
+                >
+                  {POLITICAL_LENSES.map((lens) => (
+                    <option key={lens} value={lens}>{lens}</option>
+                  ))}
+                </select>
+                {settings.politicalLens !== 'Balanced / Neutral' &&
+                  settings.politicalLens !== 'Custom / No Political Filtering' && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {PERSPECTIVE_MODES.map((mode) => {
+                        const active = (settings.perspectiveMode ?? 'Cross-perspective') === mode
+                        return (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => onChange({ perspectiveMode: mode })}
+                            className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold ${
+                              active
+                                ? 'border-[#4F46E5] bg-[#EEF2FF] text-[#4F46E5]'
+                                : 'border-[#E4E4E7] text-[#71717A]'
+                            }`}
+                          >
+                            {mode === 'Cross-perspective' ? 'See both sides' : 'Mostly my view'}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                <p className="mt-2 text-[10px] leading-snug text-[#A1A1AA]">
+                  Stored with your account preferences. You can change or clear it any time in settings.
+                </p>
               </div>
 
               <div className="mt-4 rounded-xl border border-[#E4E4E7] p-4">

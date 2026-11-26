@@ -22,6 +22,7 @@ import {
 import { Badge } from './ui.jsx'
 import ProviderGuides from './ProviderGuides.jsx'
 import { PROVIDER_CONFIG, getKeyStatus, markReady } from '../lib/llmRotator.js'
+import { PERSPECTIVE_MODES, POLITICAL_LENSES } from '../lib/storage.js'
 
 const STATUS_TONES = {
   ready: 'emerald',
@@ -279,6 +280,8 @@ export default function KeyManagerModal({
   connections,
   onWipeLocalData,
   account,
+  prefs,
+  onPrefsChange,
 }) {
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -344,6 +347,46 @@ export default function KeyManagerModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7">
           <div className="mt-5 rounded-xl border border-[#E4E4E7] bg-white p-4">
+            <p className="text-[12px] font-semibold text-[#09090B]">News lens (optional)</p>
+            <p className="mt-1 text-[11px] leading-snug text-[#71717A]">
+              Choose how Briefr frames news. This never touches weather or your schedule.
+            </p>
+            <select
+              aria-label="Political news lens"
+              value={prefs?.politicalLens ?? 'Balanced / Neutral'}
+              onChange={(event) => onPrefsChange({ politicalLens: event.target.value })}
+              className="mt-3 w-full rounded-lg border border-[#E4E4E7] px-3 py-2 text-[11px] focus:border-[#A5B4FC] focus:outline-none"
+            >
+              {POLITICAL_LENSES.map((lens) => (
+                <option key={lens} value={lens}>{lens}</option>
+              ))}
+            </select>
+            {(prefs?.politicalLens ?? 'Balanced / Neutral') !== 'Balanced / Neutral' &&
+              prefs?.politicalLens !== 'Custom / No Political Filtering' && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {PERSPECTIVE_MODES.map((mode) => {
+                    const active = (prefs?.perspectiveMode ?? 'Cross-perspective') === mode
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => onPrefsChange({ perspectiveMode: mode })}
+                        className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold ${
+                          active ? 'border-[#4F46E5] bg-[#EEF2FF] text-[#4F46E5]' : 'border-[#E4E4E7] text-[#71717A]'
+                        }`}
+                      >
+                        {mode === 'Cross-perspective' ? 'See both sides' : 'Mostly my view'}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            <p className="mt-2 text-[10px] leading-snug text-[#A1A1AA]">
+              Saved with your account preferences. Switch back any time.
+            </p>
+          </div>
+
+          <div className="mt-5 rounded-xl border border-[#E4E4E7] bg-white p-4">
             <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[#09090B]">
               <ShieldCheck size={13} className="text-[#4F46E5]" /> Privacy & permissions
             </p>
@@ -376,6 +419,9 @@ export default function KeyManagerModal({
               <li>
                 <span className="font-semibold text-[#3F3F46]">AI keys:</span> {keys.length} saved in this browser.
                 {account ? ` Signed in as ${account.email}.` : ''}
+              </li>
+              <li>
+                <span className="font-semibold text-[#3F3F46]">News lens:</span> {prefs?.politicalLens ?? 'Balanced / Neutral'} — used only to rank and frame news.
               </li>
             </ul>
             <p className="mt-2 text-[10px] leading-snug text-[#A1A1AA]">

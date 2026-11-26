@@ -5,6 +5,15 @@ import { Badge, Card, CardHeader, Segmented } from './ui.jsx'
 const FILTERS = ['All', 'Local', 'Important']
 const VIEWS = ['Quick read', 'Every headline']
 
+const LENS_LABELS = {
+  'Balanced / Neutral': 'Balanced',
+  'Conservative / Republican': 'Conservative',
+  'Liberal / Democratic': 'Liberal',
+  Libertarian: 'Libertarian',
+  'Independent / Centrist': 'Centrist',
+  'Custom / No Political Filtering': 'No filtering',
+}
+
 function Story({ story }) {
   return (
     <article className="rounded-xl border border-[#F4F4F5] p-4 transition-colors hover:border-[#E4E4E7] hover:bg-[#FCFCFD]">
@@ -73,7 +82,18 @@ function RawList({ items }) {
   )
 }
 
-export default function NewsFeedCard({ digest, items = [], source = 'raw', loading = false, meta = null, error = null, sourceCount = 0 }) {
+export default function NewsFeedCard({
+  digest,
+  items = [],
+  source = 'raw',
+  loading = false,
+  meta = null,
+  error = null,
+  sourceCount = 0,
+  politicalLens = 'Balanced / Neutral',
+  perspectiveMode = 'Cross-perspective',
+  onResetLens,
+}) {
   const [view, setView] = useState('Quick read')
   const [filter, setFilter] = useState('All')
 
@@ -99,6 +119,24 @@ export default function NewsFeedCard({ digest, items = [], source = 'raw', loadi
           <Segmented options={VIEWS} value={view} onChange={setView} size="sm" className="shrink-0" />
         }
       />
+
+      {politicalLens !== 'Balanced / Neutral' && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#F4F4F5] bg-[#FAFAFA] px-5 py-2 sm:px-6">
+          <Badge tone="indigo">Lens: {LENS_LABELS[politicalLens] ?? politicalLens}</Badge>
+          <span className="text-[10px] text-[#A1A1AA]">
+            {perspectiveMode === 'Mostly aligned' ? 'Mostly your view' : 'Both sides when available'}
+          </span>
+          {onResetLens && (
+            <button
+              type="button"
+              onClick={onResetLens}
+              className="ml-auto text-[10px] font-semibold text-[#4F46E5] hover:underline"
+            >
+              Back to balanced
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-5 border-b border-[#F4F4F5] px-5 sm:px-6">
         {FILTERS.map((item) => {
