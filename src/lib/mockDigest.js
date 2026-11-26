@@ -331,6 +331,23 @@ export const TOPIC_PACKS = [
 ]
 
 // Same shape as normalizeForecast(), so the live and offline paths share one card.
+export const mockCalendarEvents = digest.schedule.map((item, index) => {
+  const hour = Number(item.time.split(':')[0]) + (item.meridiem === 'PM' && item.time !== '12' ? 12 : 0)
+  const minute = Number(item.time.split(':')[1] ?? 0)
+  const date = new Date()
+  date.setHours(hour, minute, 0, 0)
+  return {
+    id: `preview-${item.id}`,
+    source: 'Preview',
+    title: item.title,
+    start: date,
+    end: new Date(date.getTime() + (index === 1 ? 3_600_000 : 1_800_000)),
+    allDay: false,
+    location: item.meta,
+    status: item.tag,
+  }
+})
+
 export const mockWeather = {
   locationLabel: digest.location,
   timezone: 'America/New_York',

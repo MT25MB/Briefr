@@ -23,6 +23,7 @@ On this Windows setup, use `npm.cmd` — PowerShell blocks `npm.ps1`.
 - A place to paste an email or chat message and see what to do with it.
 - A read-aloud button so you can listen while you get ready.
 - Space for several free AI keys, with automatic switching when one is busy.
+- A single "What's Ahead Today" list that gathers events from your calendars.
 
 Nothing is stored on a Briefr server. There isn't one. Your keys, settings, and today's saved briefing live in this browser's local storage.
 
@@ -33,6 +34,17 @@ Get a free key from Google AI Studio, Groq, or OpenRouter, then add it under **K
 There's also an **Advanced** section if you run a model on your own computer with Ollama. Your browser can only reach it if Ollama allows your site address, so the screen shows a short note about that.
 
 Free tiers are handy for a morning digest, but they can have usage limits and privacy trade-offs. Avoid pasting sensitive information into prompts.
+
+## Connect your calendars (optional)
+
+Open **What's Ahead Today → Connect** to bring today's events into Briefr. Everything is read-only, and you can disconnect any source at any time.
+
+- **Google Calendar:** add your own OAuth client ID and connect. Briefr asks only for read-only calendar access.
+- **Notion:** paste an integration token and a database ID. Briefr finds the Date and Status properties, skips done or archived entries, and shows today's tasks with their times. OAuth is also available if you provide a small token proxy that holds the Notion client secret.
+- **Apple and Proton:** paste a read-only ICS/iCalendar link. Recurring events are expanded into today's local time. Proton works best this way — there's no public third-party API.
+- **Apple iCloud via CalDAV:** if you run a CalDAV proxy, add its address and your calendar URL. Briefr asks the proxy for today's events.
+
+If a calendar feed blocks browser requests, add a proxy URL for that feed. Tokens and links stay in this browser's local storage, and Briefr doesn't keep a copy on a server.
 
 ## Deploy to Cloudflare Pages
 
@@ -56,6 +68,7 @@ The RSS endpoint is stateless. It checks that feed URLs are public `http`/`https
 | `src/App.jsx` | The dashboard and all the small interactions |
 | `src/components/` | Cards, key manager, setup steps, and controls |
 | `src/lib/digestRunner.js` | Puts the morning run together |
+| `src/lib/calendarService.js` | Reads Google, Notion, ICS and CalDAV events |
 | `src/lib/llmRotator.js` | Tries keys and models in order |
 | `src/lib/weatherService.js` | Open-Meteo weather and place search |
 | `src/lib/rssService.js` | Reads the selected feeds |

@@ -1,6 +1,7 @@
 // Local-only storage. Keys never leave this browser.
 const KEYS_KEY = 'briefr_keys'
 const PREFS_KEY = 'briefr_prefs'
+const CALENDARS_KEY = 'briefr_calendars'
 const CACHE_KEY = 'briefr_digest_cache'
 const DAY_KEY = 'briefr_keys_day'
 const MIGRATED_KEY = 'briefr_migrated_v3'
@@ -17,6 +18,13 @@ export const DEFAULT_PREFS = {
   commute: 'Walk / Transit',
   topics: ['Local', 'Tech & AI'],
   feeds: [],
+}
+
+export const DEFAULT_CALENDARS = {
+  google: { clientId: '', token: null },
+  notion: { token: null, databaseId: '', clientId: '', redirectUri: '', proxyUrl: '' },
+  ics: [],
+  caldav: { proxyUrl: '', calendarUrl: '' },
 }
 
 const DEFAULT_BASE_URLS = {
@@ -120,6 +128,15 @@ export function saveKeys(keys) {
   writeJson(KEYS_KEY, keys)
 }
 
+export function loadCalendars() {
+  migrateLegacy()
+  return { ...DEFAULT_CALENDARS, ...readJson(CALENDARS_KEY, {}) }
+}
+
+export function saveCalendars(calendars) {
+  writeJson(CALENDARS_KEY, calendars)
+}
+
 export function defaultBaseUrl(provider) {
   return DEFAULT_BASE_URLS[provider] ?? ''
 }
@@ -163,7 +180,7 @@ export function clearDigestCache() {
 
 export function clearAllStorage() {
   try {
-    ;[KEYS_KEY, PREFS_KEY, CACHE_KEY, DAY_KEY, MIGRATED_KEY, LEGACY_KEY].forEach((key) =>
+    ;[KEYS_KEY, PREFS_KEY, CALENDARS_KEY, CACHE_KEY, DAY_KEY, MIGRATED_KEY, LEGACY_KEY].forEach((key) =>
       localStorage.removeItem(key),
     )
   } catch {

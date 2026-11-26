@@ -52,7 +52,7 @@ async function loadNews(prefs) {
 }
 
 // Coordinates the whole briefing. Falls back to rules + raw headlines at $0.
-export async function runMorningBriefing({ prefs, keys = [], forceRefresh = false }) {
+export async function runMorningBriefing({ prefs, keys = [], forceRefresh = false, schedule = [] }) {
   const [forecast, feed] = await Promise.all([loadWeather(prefs.location), loadNews(prefs)])
 
   const preferences = {
@@ -60,7 +60,7 @@ export async function runMorningBriefing({ prefs, keys = [], forceRefresh = fals
     commute: prefs.commute,
     tone: prefs.tone,
   }
-  let wardrobe = buildFallbackWardrobe(forecast.weather, preferences)
+  let wardrobe = buildFallbackWardrobe(forecast.weather, preferences, schedule)
   let wardrobeMeta = { source: 'deterministic', loading: false }
   let newsDigest = null
   let newsSource = 'raw'
@@ -74,6 +74,7 @@ export async function runMorningBriefing({ prefs, keys = [], forceRefresh = fals
         prompt: buildWeatherOutfitPrompt({
           weatherSummary: summarizeWeather(forecast.weather),
           preferences,
+          schedule,
         }),
         systemPrompt: SYSTEM_PROMPT,
         forceRefresh,

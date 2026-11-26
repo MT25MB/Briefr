@@ -106,6 +106,12 @@ export default function WeatherOutfitCard({
             {wardrobe.precipAlert}
           </p>
         )}
+        {wardrobe.dayNotes && (
+          <p className="mt-2 flex items-start gap-2 rounded-xl border border-[#E4E4E7] bg-white px-3 py-2.5 text-[11px] leading-snug text-[#52525B]">
+            <Sparkles size={14} className="mt-0.5 shrink-0 text-[#4F46E5]" />
+            {wardrobe.dayNotes}
+          </p>
+        )}
 
         <div className="mt-5 rounded-xl border border-[#F4F4F5] bg-[#FAFAFA]">
           <div className="flex items-center justify-between gap-2 px-3 pt-3">

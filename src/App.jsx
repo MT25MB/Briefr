@@ -7,21 +7,32 @@ import ScheduleCard from './components/ScheduleCard.jsx'
 import TriageCard from './components/TriageCard.jsx'
 import OnboardingWizard from './components/OnboardingWizard.jsx'
 import KeyManagerModal from './components/KeyManagerModal.jsx'
+import CalendarSourcesModal from './components/CalendarSourcesModal.jsx'
 import RotationStatusBanner from './components/RotationStatusBanner.jsx'
-import { digest, mockWeather } from './lib/mockDigest.js'
+import { digest, mockCalendarEvents, mockWeather } from './lib/mockDigest.js'
 import {
   DEFAULT_PREFS,
   clearAllStorage,
   digestCacheKey,
+  loadCalendars,
   loadKeys,
   loadPrefs,
+  saveCalendars,
   saveKeys,
   savePrefs,
+  todayKey,
 } from './lib/storage.js'
 import { applyRateLimit, getKeyStatus, isKeyEligible, pingKey, runWithRotation } from './lib/llmRotator.js'
 import { buildFallbackWardrobe, buildTriagePrompt, triageLocally } from './lib/prompts.js'
 import { buildBriefingScript } from './lib/audioBriefing.js'
 import { MOCK_NEWS_ITEMS, runMorningBriefing } from './lib/digestRunner.js'
+import {
+  clearOAuthProvider,
+  completeGoogleOAuth,
+  completeNotionOAuth,
+  getOAuthProvider,
+  getTodaysEvents,
+} from './lib/calendarService.js'
 
 const TOAST_TONES = {
   ok: 'border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]',
@@ -32,6 +43,8 @@ const TOAST_TONES = {
 const SYSTEM_PROMPT =
   'You are Briefr, a calm morning briefing assistant. Return strict JSON only, with no markdown or commentary.'
 
+const TODAY = todayKey()
+
 export default function App() {
   const [prefs, setPrefs] = useState(loadPrefs)
   const [keys, setKeys] = useState(loadKeys)
@@ -40,6 +53,7 @@ export default function App() {
   const [bannerDismissed, setBannerDismissed] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [toast, setToast] = useState(null)
+  const [calendarNonce, setCalendarNonce] = useState(0)
   const runCounterRef = useRef(0)
 
   const [weather, setWeather] = useState(mockWeather)
@@ -70,11 +84,21 @@ export default function App() {
   const [triageLoading, setTriageLoading] = useState(false)
   const [triageSource, setTriageSource] = useState('rules')
 
+  const [calendars, setCalendars] = useState(loadCalendars)
+  const [showCalendars, setShowCalendars] = useState(false)
+  const [events, setEvents] = useState([])
+  const [calendarMeta, setCalendarMeta] = useState({ loading: false, errors: [], connected: false })
+
   const settings = { ...prefs, keys }
 
   const setKeysAndSave = useCallback((next) => {
     saveKeys(next)
     setKeys(next)
+  }, [])
+
+  const setCalendarsAndSave = useCallback((next) => {
+    saveCalendars(next)
+    setCalendars(next)
   }, [])
 
   const updateSettings = useCallback(
@@ -105,6 +129,61 @@ export default function App() {
     [],
   )
 
+  // Finish an OAuth redirect, if one just brought the user back.
+  useEffect(() => {
+    let cancelled = false
+    const finish = async () => {
+      if (!new URLSearchParams(window.location.search).has('code')) return
+      try {
+        const provider = getOAuthProvider()
+        if (provider === 'google') await completeGoogleOAuth()
+        else await completeNotionOAuth({ proxyUrl: loadCalendars().notion?.proxyUrl })
+        if (cancelled) return
+        setCalendars(loadCalendars())
+        setToast({ tone: 'ok', message: 'Calendar connected. Your morning view will update in a moment.' })
+      } catch (error) {
+        if (!cancelled) setToast({ tone: 'warn', message: `Couldn't connect that calendar: ${error.message}` })
+      } finally {
+        clearOAuthProvider()
+      }
+    }
+    finish()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Pull today's events from every connected source.
+  useEffect(() => {
+    let cancelled = false
+    const connected = Boolean(
+      calendars.google?.token ||
+        (calendars.notion?.token && calendars.notion?.databaseId) ||
+        calendars.ics?.length ||
+        (calendars.caldav?.proxyUrl && calendars.caldav?.calendarUrl),
+    )
+    if (!connected) {
+      setEvents(mockCalendarEvents)
+      setCalendarMeta({ loading: false, errors: [], connected: false })
+      return undefined
+    }
+    setCalendarMeta({ loading: true, errors: [], connected: true })
+    getTodaysEvents(calendars, TODAY)
+      .then((result) => {
+        if (cancelled) return
+        setEvents(result.events)
+        setCalendarMeta({ loading: false, errors: result.errors, connected: true })
+      })
+      .catch((error) => {
+        if (cancelled) return
+        setEvents([])
+        setCalendarMeta({ loading: false, errors: [error.message], connected: true })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [calendars, calendarNonce])
+
   // One-click Morning Run: weather + feeds + LLM synthesis, with offline fallbacks.
   const runMorning = useCallback(
     async ({ forceRefresh = false } = {}) => {
@@ -118,7 +197,7 @@ export default function App() {
       setNewsLoading(true)
 
       try {
-        const result = await runMorningBriefing({ prefs, keys, forceRefresh })
+        const result = await runMorningBriefing({ prefs, keys, forceRefresh, schedule: events })
         if (runId !== runCounterRef.current) return
         setWeather(result.weather)
         setWeatherMeta(result.weatherMeta)
@@ -139,7 +218,7 @@ export default function App() {
         }
       }
     },
-    [prefs, keys],
+    [prefs, keys, events],
   )
 
   useEffect(() => {
@@ -186,6 +265,7 @@ export default function App() {
   const refreshDigest = () => {
     if (refreshing) return
     if (prefs.rateLimitSim) simulateRateLimit()
+    setCalendarNonce((value) => value + 1)
     setToast({ tone: 'ok', message: 'Getting today together…' })
     runMorning({ forceRefresh: true })
   }
@@ -208,7 +288,7 @@ export default function App() {
       newsDigest,
       rawNews,
       inbox: digest.inbox,
-      schedule: digest.schedule,
+      schedule: events,
     })
     const utterance = new SpeechSynthesisUtterance(script)
     utterance.rate = 1.02
@@ -284,6 +364,8 @@ export default function App() {
     clearAllStorage()
     setPrefs({ ...DEFAULT_PREFS })
     setKeys([])
+    setCalendars({ google: { clientId: '', token: null }, notion: { token: null, databaseId: '', clientId: '', redirectUri: '', proxyUrl: '' }, ics: [], caldav: { proxyUrl: '', calendarUrl: '' } })
+    setShowCalendars(false)
     setWeather(mockWeather)
     setWardrobe(buildFallbackWardrobe(mockWeather, DEFAULT_PREFS))
     setRotationMeta(null)
@@ -394,7 +476,13 @@ export default function App() {
             sourceCount={newsMeta.sourceCount}
           />
           <div className="space-y-5">
-            <ScheduleCard items={digest.schedule} />
+            <ScheduleCard
+              events={events}
+              loading={calendarMeta.loading}
+              errors={calendarMeta.errors}
+              dayNotes={wardrobe.dayNotes ?? ''}
+              onConnect={() => setShowCalendars(true)}
+            />
             <TriageCard
               inbox={digest.inbox}
               result={triageResult}
@@ -432,6 +520,14 @@ export default function App() {
           cacheKey={digestCacheKey(prefs)}
           onForceRefresh={refreshDigest}
           onResetDemo={resetDemo}
+        />
+      )}
+
+      {showCalendars && (
+        <CalendarSourcesModal
+          connections={calendars}
+          onChange={setCalendarsAndSave}
+          onClose={() => setShowCalendars(false)}
         />
       )}
 

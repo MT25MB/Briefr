@@ -1,6 +1,6 @@
 // The single prompt used for weather-driven wardrobe reasoning.
 
-export function buildWeatherOutfitPrompt({ weatherSummary, preferences = {} }) {
+export function buildWeatherOutfitPrompt({ weatherSummary, preferences = {}, schedule = [] }) {
   const { sensitivity = 'Normal', commute = 'Walk / Transit', tone = 'Quick Bullets' } = preferences
 
   return `You are Briefr's wardrobe planner. Use the weather data below to give practical, plain-language clothing and gear advice.
@@ -13,10 +13,21 @@ PERSON FOR WHOM YOU ARE PLANNING:
 WEATHER DATA (Fahrenheit, mph, inches):
 ${JSON.stringify(weatherSummary)}
 
+TODAY'S EVENTS (local time, may be empty):
+${JSON.stringify(schedule.map((event) => ({
+  title: event.title,
+  start: event.start,
+  end: event.end,
+  allDay: event.allDay,
+  location: event.location,
+  source: event.source,
+})))}
+
 Return STRICT JSON ONLY — no markdown fences, no prose before or after. Use exactly this shape:
 {
   "headline": "short summary of the day's weather arc",
   "precipAlert": "exact timing and likelihood of rain or snow, or a clear 'no rain or snow expected' note if dry",
+  "dayNotes": "one short sentence mentioning the most important events today and any tight gaps or travel time, or 'A clear day ahead.' if there are none",
   "wardrobeTimeline": [
     {
       "timeWindow": "Morning",
@@ -34,6 +45,7 @@ RULES:
 - Account for temperature sensitivity: Runs Cold should add a layer, Runs Warm should remove one; Normal is the baseline.
 - Account for commute: Walk / Transit means more time outside and wind exposure; Drive means easy on/off layers; Work from Home means comfortable indoor layers with a light option for stepping out.
 - "precipAlert" must name the time window and peak chance (e.g. "Rain likely 5 PM – 5 AM, peaking near 80%"), or say clearly that the day is dry.
+- "dayNotes" must mention at least one real event from TODAY'S EVENTS if any exist. Never invent an event. Keep it to one friendly sentence.
 - Tone: ${tone === 'Friendly' ? 'warm and conversational, like a friend checking in' : tone === 'Direct' ? 'short, blunt, no filler' : 'short, scannable bullets written as sentences'}.
 - Do not invent weather values. Do not use markdown in any field.`
 }
@@ -140,7 +152,7 @@ function jacketFor(feels) {
 }
 
 // Deterministic, offline generator used when no key is configured or a call fails.
-export function buildFallbackWardrobe(weather, preferences = {}) {
+export function buildFallbackWardrobe(weather, preferences = {}, schedule = []) {
   const { sensitivity = 'Normal', commute = 'Walk / Transit', tone = 'Quick Bullets' } = preferences
   const adjust = COLD_ADJUST[sensitivity] ?? 0
   const wetWindow = weather.windows.find((window) => window.precipMax >= 40 || window.snowfall > 0)
@@ -190,5 +202,9 @@ export function buildFallbackWardrobe(weather, preferences = {}) {
       ? `A ${arc.toLowerCase()} today — highs near ${weather.high}°F. ${wetWindow ? 'Keep something waterproof close by.' : 'A dry one, so layer lightly.'}`
       : `Highs near ${weather.high}°F with ${arc}; ${wetWindow ? `wet weather ${wetWindow.label.toLowerCase()}.` : 'dry throughout.'}`
 
-  return { headline, precipAlert, wardrobeTimeline }
+  const first = schedule[0]
+  const dayNotes = first
+    ? `${schedule.length} thing${schedule.length === 1 ? '' : 's'} on the calendar, starting with ${first.title}.`
+    : 'A clear day ahead.'
+  return { headline, precipAlert, wardrobeTimeline, dayNotes }
 }
