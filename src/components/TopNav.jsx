@@ -1,4 +1,4 @@
-import { AlertTriangle, Headphones, KeyRound, Loader2, Pause, Play, RefreshCw, Sparkles, Square, Volume2, VolumeX } from 'lucide-react'
+import { AlertTriangle, Headphones, KeyRound, Loader2, Pause, Play, RefreshCw, Sparkles, Square, UserRound, Volume2, VolumeX } from 'lucide-react'
 import BrandMark from './BrandMark.jsx'
 import { Segmented } from './ui.jsx'
 import { TONES } from '../lib/storage.js'
@@ -70,6 +70,8 @@ export default function TopNav({
   rateLimitSim,
   onToggleRateLimit,
   onOpenSettings,
+  account,
+  onOpenAccount,
 }) {
   return (
     <header className="sticky top-0 z-30 border-b border-[#E4E4E7] bg-white/85 backdrop-blur-xl">
@@ -148,6 +150,21 @@ export default function TopNav({
               <KeyRound size={15} />
               <span className="hidden sm:inline">Keys & settings</span>
               <span className="sm:hidden">Settings</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenAccount}
+              className={`${ACTION_BUTTON} ${
+                account
+                  ? 'border-[#C7D2FE] bg-[#EEF2FF] text-[#4F46E5]'
+                  : 'border-[#E4E4E7] bg-white text-[#3F3F46] hover:text-[#4F46E5]'
+              }`}
+              title={account ? `Signed in as ${account.email}` : 'Create an account or sign in'}
+            >
+              <UserRound size={15} />
+              <span className="hidden max-w-[130px] truncate sm:inline">{account ? account.email : 'Sign in'}</span>
+              <span className="sm:hidden">{account ? 'Account' : 'Sign in'}</span>
             </button>
           </div>
         </div>

@@ -1,4 +1,6 @@
 // Local-only storage. Keys never leave this browser.
+import { getActiveAccountId } from './session.js'
+
 const KEYS_KEY = 'briefr_keys'
 const PREFS_KEY = 'briefr_prefs'
 const CALENDARS_KEY = 'briefr_calendars'
@@ -6,6 +8,32 @@ const CACHE_KEY = 'briefr_digest_cache'
 const DAY_KEY = 'briefr_keys_day'
 const MIGRATED_KEY = 'briefr_migrated_v3'
 const LEGACY_KEY = 'briefr.settings.v1'
+
+const USER_DATA_KEYS = [KEYS_KEY, PREFS_KEY, CALENDARS_KEY, CACHE_KEY, DAY_KEY, MIGRATED_KEY]
+
+export function scopeKey(key, accountId = getActiveAccountId()) {
+  return accountId ? `briefr_${accountId}_${key}` : key
+}
+
+export function wipeScope(accountId) {
+  try {
+    USER_DATA_KEYS.forEach((key) => localStorage.removeItem(scopeKey(key, accountId)))
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+export function copyAnonymousDataToScope(accountId) {
+  try {
+    USER_DATA_KEYS.forEach((key) => {
+      const source = localStorage.getItem(key)
+      const target = scopeKey(key, accountId)
+      if (source && !localStorage.getItem(target)) localStorage.setItem(target, source)
+    })
+  } catch {
+    // Best effort: a fresh account can start from defaults.
+  }
+}
 
 export const TONES = ['Quick Bullets', 'Friendly', 'Direct']
 
@@ -43,7 +71,7 @@ export function todayKey(date = new Date()) {
 
 function readJson(key, fallback) {
   try {
-    const raw = localStorage.getItem(key)
+    const raw = localStorage.getItem(scopeKey(key))
     return raw ? JSON.parse(raw) : fallback
   } catch {
     return fallback
@@ -52,7 +80,7 @@ function readJson(key, fallback) {
 
 function writeJson(key, value) {
   try {
-    localStorage.setItem(key, JSON.stringify(value))
+    localStorage.setItem(scopeKey(key), JSON.stringify(value))
   } catch {
     // Private browsing or storage full — the app still works in memory.
   }
@@ -60,7 +88,7 @@ function writeJson(key, value) {
 
 function migrateLegacy() {
   try {
-    if (localStorage.getItem(MIGRATED_KEY)) return
+    if (localStorage.getItem(scopeKey(MIGRATED_KEY))) return
     const legacy = readJson(LEGACY_KEY, null)
     if (legacy) {
       const keys = (legacy.keys ?? []).map((key) => ({
@@ -88,7 +116,7 @@ function migrateLegacy() {
       writeJson(PREFS_KEY, prefs)
       localStorage.removeItem(LEGACY_KEY)
     }
-    localStorage.setItem(MIGRATED_KEY, '1')
+    localStorage.setItem(scopeKey(MIGRATED_KEY), '1')
   } catch {
     // Migration is best effort.
   }
@@ -97,13 +125,13 @@ function migrateLegacy() {
 function resetDailyFlagsIfNeeded() {
   const today = todayKey()
   try {
-    if (localStorage.getItem(DAY_KEY) === today) return
+    if (localStorage.getItem(scopeKey(DAY_KEY)) === today) return
     const keys = readJson(KEYS_KEY, [])
     writeJson(
       KEYS_KEY,
       keys.map((key) => ({ ...key, dailyExhausted: false })),
     )
-    localStorage.setItem(DAY_KEY, today)
+    localStorage.setItem(scopeKey(DAY_KEY), today)
   } catch {
     // Ignore storage errors.
   }
@@ -179,10 +207,9 @@ export function clearDigestCache() {
 }
 
 export function clearAllStorage() {
+  wipeScope(getActiveAccountId())
   try {
-    ;[KEYS_KEY, PREFS_KEY, CALENDARS_KEY, CACHE_KEY, DAY_KEY, MIGRATED_KEY, LEGACY_KEY].forEach((key) =>
-      localStorage.removeItem(key),
-    )
+    localStorage.removeItem(LEGACY_KEY)
   } catch {
     // Ignore storage errors.
   }

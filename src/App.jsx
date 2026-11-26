@@ -8,6 +8,7 @@ import TriageCard from './components/TriageCard.jsx'
 import OnboardingWizard from './components/OnboardingWizard.jsx'
 import KeyManagerModal from './components/KeyManagerModal.jsx'
 import CalendarSourcesModal from './components/CalendarSourcesModal.jsx'
+import AccountModal from './components/AccountModal.jsx'
 import RotationStatusBanner from './components/RotationStatusBanner.jsx'
 import { digest, mockCalendarEvents, mockWeather } from './lib/mockDigest.js'
 import {
@@ -26,6 +27,7 @@ import { applyRateLimit, getKeyStatus, isKeyEligible, pingKey, runWithRotation }
 import { buildFallbackWardrobe, buildTriagePrompt, triageLocally } from './lib/prompts.js'
 import { buildBriefingScript } from './lib/audioBriefing.js'
 import { MOCK_NEWS_ITEMS, runMorningBriefing } from './lib/digestRunner.js'
+import { getCurrentAccount } from './lib/accountService.js'
 import {
   clearOAuthProvider,
   completeGoogleOAuth,
@@ -89,6 +91,9 @@ export default function App() {
   const [events, setEvents] = useState([])
   const [calendarMeta, setCalendarMeta] = useState({ loading: false, errors: [], connected: false })
 
+  const [account, setAccount] = useState(getCurrentAccount)
+  const [showAccount, setShowAccount] = useState(false)
+
   const settings = { ...prefs, keys }
 
   const setKeysAndSave = useCallback((next) => {
@@ -99,6 +104,18 @@ export default function App() {
   const setCalendarsAndSave = useCallback((next) => {
     saveCalendars(next)
     setCalendars(next)
+  }, [])
+
+  const handleAccountChange = useCallback((next) => {
+    setAccount(next)
+    setPrefs(loadPrefs())
+    setKeys(loadKeys())
+    setCalendars(loadCalendars())
+    setRotationMeta(null)
+    setNewsDigest(null)
+    setNewsSource('raw')
+    setBannerDismissed(false)
+    setCalendarNonce((value) => value + 1)
   }, [])
 
   const updateSettings = useCallback(
@@ -382,6 +399,21 @@ export default function App() {
     setToast({ tone: 'ok', message: 'Fresh start. Saved keys and briefings are cleared.' })
   }
 
+  const wipeLocalData = () => {
+    if (!window.confirm('Disconnect every calendar and clear saved keys, settings and briefings on this device?')) return
+    clearAllStorage()
+    setKeys([])
+    setCalendars(loadCalendars())
+    setPrefs(loadPrefs())
+    setRotationMeta(null)
+    setNewsDigest(null)
+    setNewsSource('raw')
+    setTriageResult(null)
+    setShowKeyManager(false)
+    setCalendarNonce((value) => value + 1)
+    setToast({ tone: 'ok', message: 'Everything saved on this device is cleared.' })
+  }
+
   const showSetupBanner = !prefs.onboardingDone && !bannerDismissed
 
   return (
@@ -401,6 +433,8 @@ export default function App() {
         rateLimitSim={prefs.rateLimitSim}
         onToggleRateLimit={toggleRateLimitSim}
         onOpenSettings={() => setShowKeyManager(true)}
+        account={account}
+        onOpenAccount={() => setShowAccount(true)}
       />
 
       <main className="mx-auto max-w-[1440px] px-4 pb-28 pt-6 sm:px-6 lg:pb-10 lg:px-8">
@@ -520,6 +554,9 @@ export default function App() {
           cacheKey={digestCacheKey(prefs)}
           onForceRefresh={refreshDigest}
           onResetDemo={resetDemo}
+          connections={calendars}
+          onWipeLocalData={wipeLocalData}
+          account={account}
         />
       )}
 
@@ -528,6 +565,14 @@ export default function App() {
           connections={calendars}
           onChange={setCalendarsAndSave}
           onClose={() => setShowCalendars(false)}
+        />
+      )}
+
+      {showAccount && (
+        <AccountModal
+          account={account}
+          onChange={handleAccountChange}
+          onClose={() => setShowAccount(false)}
         />
       )}
 

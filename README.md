@@ -46,6 +46,14 @@ Open **What's Ahead Today → Connect** to bring today's events into Briefr. Eve
 
 If a calendar feed blocks browser requests, add a proxy URL for that feed. Tokens and links stay in this browser's local storage, and Briefr doesn't keep a copy on a server.
 
+## Accounts and privacy
+
+Use the **Sign in** button in the top bar to create a local account. It keeps each person's settings, keys, calendar links and saved digests separate on a shared device. Passwords are hashed with PBKDF2; the raw password is never stored.
+
+These accounts live in this browser only. They are great for a shared computer, but they do not sync across devices. A cloud provider such as Supabase or Clerk could be added later if you want real cross-device sign-in.
+
+In **Keys & settings → Privacy & permissions**, you can see every calendar connection, what Briefr reads, and wipe local data in one click. Calendar titles are never written to a server log. BYOK API keys stay in your browser and never ship in the app bundle. You can also download your data or delete your account and everything it saved from the account panel.
+
 ## Deploy to Cloudflare Pages
 
 1. Push this repository to your GitHub account.
@@ -68,6 +76,8 @@ The RSS endpoint is stateless. It checks that feed URLs are public `http`/`https
 | `src/App.jsx` | The dashboard and all the small interactions |
 | `src/components/` | Cards, key manager, setup steps, and controls |
 | `src/lib/digestRunner.js` | Puts the morning run together |
+| `src/lib/accountService.js` | Local accounts, export and deletion |
+| `src/lib/session.js` | Active account session |
 | `src/lib/calendarService.js` | Reads Google, Notion, ICS and CalDAV events |
 | `src/lib/llmRotator.js` | Tries keys and models in order |
 | `src/lib/weatherService.js` | Open-Meteo weather and place search |
