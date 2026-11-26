@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Check, Download, Lock, LogOut, Trash2, UserRound, X } from 'lucide-react'
+import { useState } from 'react'
+import Modal from './Modal.jsx'
 import { deleteAccount, exportAccountData, signIn, signOut, signUp } from '../lib/accountService.js'
 import { continueLocalOnly, isCloudConfigured } from '../lib/auth.js'
 
@@ -14,14 +14,6 @@ export default function AccountModal({ account, onChange, onClose, onDeleted }) 
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
-
-  useEffect(() => {
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
 
   const submit = async (event) => {
     event.preventDefault()
@@ -76,36 +68,14 @@ export default function AccountModal({ account, onChange, onClose, onDeleted }) 
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(28,27,25,0.5)] p-3 sm:p-6"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
+    <Modal
+      label="Your account"
+      title="Your account"
+      description="Keeps each person's settings and calendars separate on this device."
+      size="sm"
+      onClose={onClose}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Your account"
-        className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-[var(--line)] bg-white "
-      >
-        <div className="flex items-start justify-between gap-3 border-b border-[var(--line-soft)] px-5 py-4 sm:px-7">
-          <div>
-            <h2 className="text-[1.0625rem] font-bold tracking-tight text-[var(--ink)]">Your account</h2>
-            <p className="text-[0.8125rem] text-[var(--muted)]">
-              Keeps each person's settings and calendars separate on this device.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close account"
-            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg text-[var(--faint)] hover:bg-[var(--paper)] hover:text-[var(--ink)]"
-          >
-            <X size={17} />
-          </button>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7">
+      <div>
           {!account ? (
             <form onSubmit={submit} className="space-y-3">
               <div className="flex gap-2 rounded-xl bg-[var(--line-soft)] p-1">
@@ -117,8 +87,8 @@ export default function AccountModal({ account, onChange, onClose, onDeleted }) 
                       setMode(item)
                       setError('')
                     }}
-                    className={`flex-1 rounded-lg px-3 py-2 text-[0.8125rem] font-semibold transition-colors ${
-                      mode === item ? 'bg-white text-[var(--ink)] ' : 'text-[var(--muted)]'
+                    className={`min-h-12 flex-1 rounded-lg px-3 text-[0.8125rem] font-semibold transition-colors ${
+                      mode === item ? 'bg-[var(--surface)] text-[var(--ink)] ' : 'text-[var(--muted)]'
                     }`}
                   >
                     {item === 'signin' ? 'Sign in' : 'Create account'}
@@ -138,9 +108,9 @@ export default function AccountModal({ account, onChange, onClose, onDeleted }) 
               <button
                 type="submit"
                 disabled={busy}
-                className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 text-[0.875rem] font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--accent-action)] px-3 text-[0.875rem] font-semibold text-white hover:bg-[var(--accent-action-hover)] disabled:opacity-50"
               >
-                <UserRound size={14} /> {busy ? 'One moment…' : mode === 'signup' ? 'Create my account' : 'Sign in'}
+                {busy ? 'One moment…' : mode === 'signup' ? 'Create my account' : 'Sign in'}
               </button>
 
               <button
@@ -152,22 +122,21 @@ export default function AccountModal({ account, onChange, onClose, onDeleted }) 
                 }}
                 className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--line)] px-3 text-[0.875rem] font-semibold text-[var(--ink-2)] hover:bg-[var(--paper)]"
               >
-                Continue without an account (Local-only)
+                Use local-only mode
               </button>
 
-              <p className="flex items-start gap-1.5 text-[0.75rem] leading-snug text-[var(--faint)]">
-                <Lock size={11} className="mt-0.5 shrink-0" />
+              <p className="metadata">
                 {isCloudConfigured
-                  ? 'Sign-in is powered by Supabase. Your preferences sync; API keys still stay in this browser.'
-                  : 'Cloud sign-in is not configured on this deployment. Local-only mode works right away.'}
+                  ? 'Sign-in syncs preferences. Keys stay on this device.'
+                  : 'Cloud sign-in is not configured here. Local-only mode works right away.'}
               </p>
             </form>
           ) : (
             <div className="space-y-3">
               <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4">
                 <div className="flex items-center gap-2">
-                  <span className="flex size-9 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
-                    <UserRound size={16} />
+                  <span className="tnum flex size-9 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
+                    {(account.name || account.email || 'B').slice(0, 1).toUpperCase()}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[0.9375rem] font-semibold text-[var(--ink)]">{account.name || account.email}</p>
@@ -182,7 +151,7 @@ export default function AccountModal({ account, onChange, onClose, onDeleted }) 
                 onClick={downloadData}
                 className="inline-flex min-h-12 w-full items-center gap-1.5 rounded-lg border border-[var(--line)] px-3 text-[0.8125rem] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"
               >
-                <Download size={13} /> Download my data
+                Download my data
               </button>
 
               <button
@@ -194,11 +163,11 @@ export default function AccountModal({ account, onChange, onClose, onDeleted }) 
                 }}
                 className="inline-flex min-h-12 w-full items-center gap-1.5 rounded-lg border border-[var(--line)] px-3 text-[0.8125rem] font-semibold text-[var(--ink-2)] hover:bg-[var(--paper)]"
               >
-                <LogOut size={13} /> Sign out
+                Sign out
               </button>
 
               <div className="rounded-xl border border-[var(--danger-line)] bg-[var(--danger-soft)] p-4">
-                <p className="text-[0.875rem] font-semibold text-[var(--danger)]">Delete my data</p>
+                <p className="text-[0.875rem] font-semibold text-[var(--danger)]">Delete account</p>
                 <p className="mt-1 text-[0.8125rem] leading-snug text-[var(--danger)]">
                   This removes your saved settings, keys, calendar links and cached briefings here. If you have a synced account, it also closes that account.
                 </p>
@@ -206,18 +175,17 @@ export default function AccountModal({ account, onChange, onClose, onDeleted }) 
                   type="button"
                   onClick={removeAccount}
                   disabled={busy}
-                  className="mt-3 inline-flex min-h-12 items-center gap-1.5 rounded-lg bg-[var(--danger)] px-3 text-[0.8125rem] font-semibold text-white hover:bg-[var(--danger)] disabled:opacity-40"
+                  className="mt-3 inline-flex min-h-12 items-center gap-1.5 rounded-lg bg-[var(--danger-action)] px-3 text-[0.8125rem] font-semibold text-white hover:bg-[var(--danger-action)] disabled:opacity-40"
                 >
-                  <Trash2 size={13} /> Delete account and data
+                  Delete account and data
                 </button>
               </div>
 
               {error && <p className="rounded-lg bg-[var(--danger-soft)] px-3 py-2 text-[0.8125rem] text-[var(--danger)]">{error}</p>}
-              {notice && <p className="flex items-center gap-1.5 rounded-lg bg-[var(--success-soft)] px-3 py-2 text-[0.8125rem] text-[var(--success)]"><Check size={12} /> {notice}</p>}
+              {notice && <p className="rounded-lg bg-[var(--success-soft)] px-3 py-2 text-[0.8125rem] text-[var(--success)]">{notice}</p>}
             </div>
           )}
-        </div>
       </div>
-    </div>
+    </Modal>
   )
 }

@@ -24,7 +24,7 @@ function AudioControls({ state, onPlay, onPause, onResume, onStop, mobile = fals
   return (
     <div className={`inline-flex items-center gap-1 ${mobile ? '' : 'ml-2'}`}>
       {state === 'idle' ? (
-        <button type="button" onClick={onPlay} aria-label="Listen to today's briefing" className={`${ACTION} bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]`}>
+        <button type="button" onClick={onPlay} aria-label="Listen to today's briefing" className={`${ACTION} bg-[var(--accent-action)] text-white hover:bg-[var(--accent-action-hover)]`}>
           Listen
         </button>
       ) : (
@@ -32,7 +32,7 @@ function AudioControls({ state, onPlay, onPause, onResume, onStop, mobile = fals
           {state === 'playing' ? (
             <button type="button" onClick={onPause} aria-label="Pause the briefing" className={QUIET}>Pause</button>
           ) : (
-            <button type="button" onClick={onResume} aria-label="Resume the briefing" className={`${ACTION} bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]`}>Resume</button>
+            <button type="button" onClick={onResume} aria-label="Resume the briefing" className={`${ACTION} bg-[var(--accent-action)] text-white hover:bg-[var(--accent-action-hover)]`}>Resume</button>
           )}
           <button type="button" onClick={onStop} aria-label="Stop the briefing" className={QUIET}>Stop</button>
         </>
@@ -91,7 +91,7 @@ export default function TopNav({
 
             <button type="button" onClick={onOpenSettings} className={QUIET}>
               <span className="hidden md:inline">Keys & settings</span>
-              <span className="md:hidden">Settings</span>
+              <span className="md:hidden">Keys</span>
             </button>
 
             <button

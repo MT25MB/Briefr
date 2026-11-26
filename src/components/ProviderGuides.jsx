@@ -1,4 +1,4 @@
-import { ExternalLink, Lock, ShieldCheck } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { PROVIDERS } from '../lib/mockDigest.js'
 
 export default function ProviderGuides() {
@@ -15,7 +15,7 @@ export default function ProviderGuides() {
         {guides.map((provider) => (
           <div key={provider.id} className="border-t border-[var(--line)] pt-4">
             <div className="flex items-center gap-2">
-              <span className="flex size-7 items-center justify-center rounded-lg bg-[var(--ink)] text-[0.75rem] font-bold text-white">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-[var(--accent-action)] text-[0.75rem] font-bold text-white">
                 {provider.name.slice(0, 2).toUpperCase()}
               </span>
               <div className="min-w-0">
@@ -43,18 +43,9 @@ export default function ProviderGuides() {
         ))}
       </div>
 
-      <div className="metadata mt-5 space-y-1.5 border-t border-[var(--line)] pt-4">
-        <p className="flex items-start gap-1.5">
-          <Lock size={11} className="mt-0.5 shrink-0 text-[var(--accent)]" />
-          Your keys stay in this browser's localStorage. They are never sent to a Briefr server — there
-          isn't one.
-        </p>
-        <p className="flex items-start gap-1.5">
-          <ShieldCheck size={11} className="mt-0.5 shrink-0 text-[var(--accent)]" />
-          Free tiers are great for a morning briefing, but they can have usage limits and privacy
-          trade-offs. Avoid pasting sensitive information into prompts.
-        </p>
-      </div>
+      <p className="metadata mt-5 border-t border-[var(--line)] pt-4">
+        Free tiers have limits and privacy trade-offs. Keep sensitive text out of prompts.
+      </p>
     </div>
   )
 }

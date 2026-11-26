@@ -19,12 +19,14 @@
   --line-soft: #efede7;
   --line-strong: #cbc7bc;
 
-  /* One accent, used for actions and active states only. */
+  /* One accent: quiet text for links, a deeper value for solid actions. */
   --accent: #3730a3;
   --accent-hover: #2d2580;
   --accent-deep: #1e1b4b;
   --accent-soft: #eeeeff;
   --accent-line: #d7d6ff;
+  --accent-action: #3730a3;
+  --accent-action-hover: #2d2580;
 
   /* Status and source tones, each muted and used sparingly. */
   --warning: #8a4b0a;
@@ -33,6 +35,7 @@
   --danger: #9f1239;
   --danger-soft: #fff4f7;
   --danger-line: #e8c7d1;
+  --danger-action: #9f1239;
   --success: #166534;
   --success-soft: #f0f7f2;
   --success-line: #cfe3d6;
@@ -46,6 +49,42 @@
   --space-4: 1rem;
   --space-6: 1.5rem;
   --space-8: 2rem;
+}
+
+/* Warm near-black ground, elevated surfaces, and lighter text — not an inversion. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --paper: #14130f;
+  --surface: #1e1c17;
+  --ink: #f3f0e8;
+  --ink-2: #dcd7cc;
+  --muted: #b8b2a4;
+  --faint: #9a9486;
+  --line: #38342c;
+  --line-soft: #2a2721;
+  --line-strong: #575145;
+
+  --accent: #a8b2ff;
+  --accent-hover: #c7cdff;
+  --accent-deep: #dbe0ff;
+  --accent-soft: #262443;
+  --accent-line: #3b3a68;
+  --accent-action: #4f46e5;
+  --accent-action-hover: #4338ca;
+
+  --warning: #e5b567;
+  --warning-soft: #332611;
+  --warning-line: #5c441e;
+  --danger: #f4a6b7;
+  --danger-soft: #36161f;
+  --danger-line: #6b273c;
+  --danger-action: #be123c;
+  --success: #86d6a5;
+  --success-soft: #122a1a;
+  --success-line: #275138;
+  --source-violet: #b79ae8;
+  --source-sky: #7cc4ea;
 }
 
 @layer base {
@@ -169,7 +208,7 @@
     justify-content: center;
     gap: var(--space-2);
     border-radius: 0.625rem;
-    background: var(--accent);
+    background: var(--accent-action);
     color: #ffffff;
     font-size: 0.875rem;
     font-weight: 600;
@@ -177,7 +216,7 @@
   }
 
   .primary-button:hover {
-    background: var(--accent-hover);
+    background: var(--accent-action-hover);
   }
 
   .danger-button {

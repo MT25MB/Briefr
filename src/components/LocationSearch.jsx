@@ -81,7 +81,7 @@ export default function LocationSearch({ id = 'location', value, onChange }) {
       {open && (
         <div
           role="listbox"
-          className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-[var(--line)] bg-white "
+          className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)] "
         >
           {results.length ? (
             results.map((place) => (

@@ -104,7 +104,7 @@ export default function TriageCard({ inbox, result, loading = false, onTriage })
 
       <section className="mt-4 px-6 py-5" aria-label="Sort a message">
         <h3 className="reading-title">Sort a message</h3>
-        <p className="metadata mt-2">Paste an email or chat message. It's sorted in your browser — nothing is saved on a server.</p>
+        <p className="metadata mt-2">Paste an email or chat message. It's sorted here and not stored.</p>
         <label htmlFor="triage-input" className="sr-only">Message to sort</label>
         <textarea
           id="triage-input"

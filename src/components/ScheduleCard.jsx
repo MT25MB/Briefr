@@ -24,7 +24,7 @@ export default function ScheduleCard({ events = [], loading = false, errors = []
           <div className="flex items-baseline gap-4">
             <span className="metadata tnum">{events.length} {events.length === 1 ? 'event' : 'events'}</span>
             <button type="button" onClick={onConnect} className="inline-flex min-h-12 text-[0.875rem] font-semibold text-[var(--accent)] hover:underline">
-              Connect
+              Add calendar
             </button>
           </div>
         }

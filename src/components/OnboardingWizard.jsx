@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -8,15 +8,14 @@ import {
   Globe2,
   House,
   Info,
-  Lock,
   MapPin,
   Rss,
   Trash2,
   TrainFront,
   TrendingUp,
-  X,
 } from 'lucide-react'
 import BrandMark from './BrandMark.jsx'
+import Modal from './Modal.jsx'
 import { Segmented } from './ui.jsx'
 import { KeyEditor } from './KeyManagerModal.jsx'
 import ProviderGuides from './ProviderGuides.jsx'
@@ -43,14 +42,6 @@ export default function OnboardingWizard({
   const [step, setStep] = useState(1)
   const [rssInput, setRssInput] = useState('')
 
-  useEffect(() => {
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
-
   const toggleTopic = (topic) => {
     onChange({
       topics: settings.topics.includes(topic)
@@ -71,36 +62,39 @@ export default function OnboardingWizard({
     onClose()
   }
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(28,27,25,0.5)] p-3 sm:p-6"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Briefr setup"
-        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)]"
-      >
-        <div className="flex items-center gap-4 border-b border-[var(--line)] px-5 py-5 sm:px-7">
-          <BrandMark size={32} />
-          <div className="min-w-0 flex-1">
-            <h2 className="modal-title">Set up Briefr</h2>
-            <p className="metadata mt-1">Three quick steps. Change any of this later.</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close setup"
-            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg text-[var(--faint)] hover:bg-[var(--paper)] hover:text-[var(--ink)]"
-          >
-            <X size={18} />
-          </button>
-        </div>
+  const nextLabel = ['Next: your details', 'Next: news', 'Finish setup'][step - 1]
 
-        <div className="flex gap-4 border-b border-[var(--line)] px-5 sm:gap-6 sm:px-7">
+  const footer = (
+    <>
+      <button
+        type="button"
+        onClick={() => (step === 1 ? onClose() : setStep(step - 1))}
+        className="inline-flex min-h-12 items-center gap-1.5 text-[0.875rem] font-semibold text-[var(--muted)] hover:text-[var(--ink)]"
+      >
+        <ArrowLeft size={14} /> {step === 1 ? 'Skip for now' : 'Back'}
+      </button>
+      <span className="metadata tnum">Step {step} of 3</span>
+      <button
+        type="button"
+        onClick={() => (step === 3 ? finish() : setStep(step + 1))}
+        className="primary-button"
+      >
+        {nextLabel} <ArrowRight size={14} />
+      </button>
+    </>
+  )
+
+  return (
+    <Modal
+      label="Briefr setup"
+      title="Set up Briefr"
+      description="Three quick steps. Change any of this later."
+      icon={<BrandMark size={32} />}
+      size="lg"
+      onClose={onClose}
+      footer={footer}
+    >
+      <div className="-mx-5 flex gap-4 border-b border-[var(--line)] px-5 pb-3 sm:-mx-7 sm:gap-6 sm:px-7">
           {STEPS.map((label, index) => {
             const number = index + 1
             const active = step === number
@@ -122,7 +116,7 @@ export default function OnboardingWizard({
           })}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
+        <div className="pt-6">
           {step === 1 && (
             <div>
               <h3 className="section-title">Connect a free AI helper</h3>
@@ -143,11 +137,7 @@ export default function OnboardingWizard({
                   onSimulateRateLimit={onSimulateRateLimit}
                   compact
                 />
-                <p className="mt-3 flex items-start gap-1.5 text-[0.75rem] leading-snug text-[var(--faint)]">
-                  <Lock size={11} className="mt-0.5 shrink-0" />
-                  Keys are stored in this browser's localStorage. Nothing is sent to a Briefr server —
-                  there isn't one.
-                </p>
+                <p className="metadata mt-3">Keys stay on this device. Briefr has no server for them.</p>
               </div>
             </div>
           )}
@@ -231,7 +221,7 @@ export default function OnboardingWizard({
                         active ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--line)] hover:bg-[var(--paper)]'
                       }`}
                     >
-                      <span className={`flex size-8 items-center justify-center rounded-lg ${active ? 'bg-white text-[var(--accent)]' : 'bg-[var(--line-soft)] text-[var(--muted)]'}`}>
+                      <span className={`flex size-8 items-center justify-center rounded-lg ${active ? 'bg-[var(--surface)] text-[var(--accent)]' : 'bg-[var(--line-soft)] text-[var(--muted)]'}`}>
                         <Icon size={15} />
                       </span>
                       <span className="min-w-0 flex-1">
@@ -240,7 +230,7 @@ export default function OnboardingWizard({
                         </span>
                         <span className="block text-[0.75rem] text-[var(--faint)]">{pack.detail}</span>
                       </span>
-                      <span className={`flex size-4 items-center justify-center rounded border ${active ? 'border-[var(--accent)] bg-[var(--accent)] text-white' : 'border-[var(--line-strong)]'}`}>
+                      <span className={`flex size-4 items-center justify-center rounded border ${active ? 'border-[var(--accent)] bg-[var(--accent-action)] text-white' : 'border-[var(--line-strong)]'}`}>
                         {active && <Check size={10} />}
                       </span>
                     </button>
@@ -339,25 +329,6 @@ export default function OnboardingWizard({
             </div>
           )}
         </div>
-
-        <div className="flex items-center justify-between gap-3 border-t border-[var(--line)] bg-[var(--paper)] px-5 py-4 sm:px-7">
-          <button
-            type="button"
-            onClick={() => (step === 1 ? onClose() : setStep(step - 1))}
-            className="inline-flex min-h-12 items-center gap-1.5 text-[0.875rem] font-semibold text-[var(--muted)] hover:text-[var(--ink)]"
-          >
-            <ArrowLeft size={14} /> {step === 1 ? 'Skip for now' : 'Back'}
-          </button>
-          <span className="metadata tnum">Step {step} of 3</span>
-          <button
-            type="button"
-            onClick={() => (step === 3 ? finish() : setStep(step + 1))}
-            className="primary-button"
-          >
-            {step === 3 ? 'Finish setup' : 'Continue'} <ArrowRight size={14} />
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

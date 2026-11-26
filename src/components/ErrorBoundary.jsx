@@ -5,7 +5,7 @@ import { Card } from './ui.jsx'
 function GlobalFallback({ onReset }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--paper)] px-4">
-      <div className="w-full max-w-md rounded-xl border border-[var(--line)] bg-white p-6 text-center ">
+      <div className="w-full max-w-md rounded-xl border border-[var(--line)] bg-[var(--surface)] p-6 text-center ">
         <span className="mx-auto flex size-10 items-center justify-center rounded-xl bg-[var(--warning-soft)] text-[var(--warning)]">
           <AlertTriangle size={18} />
         </span>
@@ -18,7 +18,7 @@ function GlobalFallback({ onReset }) {
         <button
           type="button"
           onClick={onReset}
-          className="mt-4 inline-flex min-h-12 items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 text-[0.875rem] font-semibold text-white hover:bg-[var(--accent-hover)]"
+          className="mt-4 inline-flex min-h-12 items-center gap-1.5 rounded-lg bg-[var(--accent-action)] px-4 text-[0.875rem] font-semibold text-white hover:bg-[var(--accent-action-hover)]"
         >
           <RotateCcw size={13} /> Reload Briefr
         </button>

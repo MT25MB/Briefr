@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
-import { AlertTriangle, Check, Info, Link2, Lock, Plus, Trash2, X } from 'lucide-react'
+import { useState } from 'react'
+import { AlertTriangle, Trash2 } from 'lucide-react'
+import Modal from './Modal.jsx'
 import { startGoogleOAuthPkce, startNotionOAuth } from '../lib/calendarService.js'
 
 function Section({ title, note, children }) {
@@ -29,14 +30,6 @@ export default function CalendarSourcesModal({ connections, onChange, onClose })
   const [caldavUrl, setCaldavUrl] = useState(connections.caldav?.calendarUrl ?? '')
   const [notice, setNotice] = useState('')
 
-  useEffect(() => {
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
-
   const save = (patch) => onChange({ ...connections, ...patch })
 
   const run = (action) => {
@@ -56,37 +49,17 @@ export default function CalendarSourcesModal({ connections, onChange, onClose })
     setNotice(`${icsLabel} calendar link added.`)
   }
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(28,27,25,0.5)] p-3 sm:p-6"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Connect calendars"
-        className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--line)] bg-white "
-      >
-        <div className="flex items-start justify-between gap-3 border-b border-[var(--line-soft)] px-5 py-4 sm:px-7">
-          <div>
-            <h2 className="text-[1.0625rem] font-bold tracking-tight text-[var(--ink)]">Connect your calendars</h2>
-            <p className="text-[0.8125rem] text-[var(--muted)]">
-              Briefr reads today's events and puts them in your morning view. You can skip this.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close calendars"
-            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg text-[var(--faint)] hover:bg-[var(--paper)] hover:text-[var(--ink)]"
-          >
-            <X size={17} />
-          </button>
-        </div>
+  const footer = <button type="button" onClick={onClose} className="primary-button">Close calendars</button>
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[var(--paper)] px-5 py-5 sm:px-7">
+  return (
+    <Modal
+      label="Connect calendars"
+      title="Connect your calendars"
+      description="Briefr reads today's events into your morning view. You can skip this."
+      onClose={onClose}
+      footer={footer}
+    >
+      <div className="space-y-3">
           <Section
             title="Google Calendar"
             note="Read-only access to titles, times and locations. Nothing gets changed."
@@ -105,9 +78,9 @@ export default function CalendarSourcesModal({ connections, onChange, onClose })
                   save({ google: { ...connections.google, clientId: googleClientId } })
                   startGoogleOAuthPkce({ clientId: googleClientId })
                 })}
-                className="inline-flex min-h-12 items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 text-[0.8125rem] font-semibold text-white hover:bg-[var(--accent-hover)]"
+                className="inline-flex min-h-12 items-center gap-1.5 rounded-lg bg-[var(--accent-action)] px-3 text-[0.8125rem] font-semibold text-white hover:bg-[var(--accent-action-hover)]"
               >
-                <Link2 size={12} /> Connect Google
+                Connect Google
               </button>
               {connections.google?.token && <span className="metadata">Connected</span>}
               {connections.google?.token && (
@@ -147,9 +120,9 @@ export default function CalendarSourcesModal({ connections, onChange, onClose })
                 save({ notion: { ...connections.notion, token: notionToken, databaseId: notionDatabaseId } })
                 setNotice('Notion database saved.')
               }}
-              className="inline-flex min-h-12 items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 text-[0.8125rem] font-semibold text-white hover:bg-[var(--accent-hover)]"
+              className="inline-flex min-h-12 items-center gap-1.5 rounded-lg bg-[var(--accent-action)] px-3 text-[0.8125rem] font-semibold text-white hover:bg-[var(--accent-action-hover)]"
             >
-              <Check size={12} /> Save Notion database
+              Save Notion database
             </button>
             <p className="text-[0.75rem] leading-snug text-[var(--faint)]">
               OAuth needs a small proxy to keep the Notion client secret off your device. Add one if you use OAuth.
@@ -167,7 +140,7 @@ export default function CalendarSourcesModal({ connections, onChange, onClose })
               })}
               className="inline-flex min-h-12 items-center gap-1.5 rounded-lg border border-[var(--line)] px-3 text-[0.8125rem] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"
             >
-              <Link2 size={12} /> Connect with Notion OAuth
+              Connect with Notion OAuth
             </button>
           </Section>
 
@@ -203,12 +176,12 @@ export default function CalendarSourcesModal({ connections, onChange, onClose })
             <button
               type="button"
               onClick={addIcs}
-              className="inline-flex min-h-12 items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 text-[0.8125rem] font-semibold text-white hover:bg-[var(--accent-hover)]"
+              className="inline-flex min-h-12 items-center gap-1.5 rounded-lg bg-[var(--accent-action)] px-3 text-[0.8125rem] font-semibold text-white hover:bg-[var(--accent-action-hover)]"
             >
-              <Plus size={12} /> Add calendar link
+              Add calendar link
             </button>
             {(connections.ics ?? []).map((feed) => (
-              <div key={feed.id} className="flex items-center gap-2 rounded-lg bg-white px-2.5 py-2">
+              <div key={feed.id} className="flex items-center gap-2 rounded-lg bg-[var(--surface)] px-2.5 py-2">
                 <span className="metadata">{feed.source}</span>
                 <span className="min-w-0 flex-1 truncate font-mono text-[0.75rem] text-[var(--muted)]">{feed.url}</span>
                 <button
@@ -249,35 +222,18 @@ export default function CalendarSourcesModal({ connections, onChange, onClose })
               }}
               className="inline-flex min-h-12 items-center gap-1.5 rounded-lg border border-[var(--line)] px-3 text-[0.8125rem] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"
             >
-              <Check size={12} /> Save CalDAV proxy
+              Save CalDAV proxy
             </button>
           </Section>
 
-          <p className="flex items-start gap-1.5 rounded-xl border border-[var(--line)] bg-white px-3 py-2.5 text-[0.75rem] leading-snug text-[var(--muted)]">
-            <Lock size={11} className="mt-0.5 shrink-0 text-[var(--accent)]" />
-            Calendar tokens and links stay in this browser's local storage. Briefr has no server that keeps them.
-          </p>
-          <p className="flex items-start gap-1.5 px-1 text-[0.75rem] leading-snug text-[var(--faint)]">
-            <Info size={11} className="mt-0.5 shrink-0" />
-            Recurring events are expanded into today's local time. If a feed blocks browser requests, add a proxy URL.
-          </p>
+          <p className="metadata">Connections stay on this device.</p>
+          <p className="metadata">Recurring events expand into today's local time. Add a proxy URL if a feed blocks browser requests.</p>
           {notice && (
             <p className="flex items-start gap-1.5 rounded-lg bg-[var(--warning-soft)] px-3 py-2 text-[0.8125rem] text-[var(--warning)]">
               <AlertTriangle size={12} className="mt-0.5 shrink-0" /> {notice}
             </p>
           )}
-        </div>
-
-        <div className="flex justify-end border-t border-[var(--line-soft)] bg-[var(--paper)] px-5 py-3.5 sm:px-7">
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-12 rounded-lg bg-[var(--ink)] px-4 py-2 text-[0.8125rem] font-semibold text-white hover:bg-[var(--ink-2)]"
-          >
-            Done
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   )
 }

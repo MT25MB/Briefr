@@ -9,13 +9,13 @@ import {
   EyeOff,
   Info,
   Loader2,
-  Lock,
   Play,
   Plus,
   RotateCcw,
   Trash2,
-  X,
 } from 'lucide-react'
+import Modal from './Modal.jsx'
+import { Segmented } from './ui.jsx'
 import ProviderGuides from './ProviderGuides.jsx'
 import PrivacyPanel from './PrivacyPanel.jsx'
 import { PROVIDER_CONFIG, getKeyStatus, markReady } from '../lib/llmRotator.js'
@@ -75,7 +75,7 @@ export function KeyEditor({ keys, onChange, onPing, onSimulateRateLimit, compact
     onChange([...keys, newKey])
     setApiKey('')
     setLabel('')
-    setNotice(`${config.label} key added. It stays in this browser.`)
+    setNotice(`${config.label} added. It will act as a backup when another key hits a limit.`)
   }
 
   const ping = async (key) => {
@@ -159,7 +159,7 @@ export function KeyEditor({ keys, onChange, onPing, onSimulateRateLimit, compact
           disabled={provider !== 'ollama' && !apiKey.trim()}
           className="primary-button disabled:opacity-40"
         >
-          <Plus size={13} /> Add this key
+          <Plus size={13} /> Add key
         </button>
       </div>
 
@@ -248,12 +248,7 @@ export function KeyEditor({ keys, onChange, onPing, onSimulateRateLimit, compact
       )}
 
       {!compact && (
-        <p className="mt-3 flex items-start gap-1.5 text-[0.75rem] leading-snug text-[var(--faint)]">
-          <Lock size={11} className="mt-0.5 shrink-0" />
-          Keys stay in localStorage on this device and are never sent to a Briefr server. Free tiers can
-          have usage limits and privacy trade-offs — avoid sensitive information in prompts. Briefr
-          quietly moves to the next key after a rate limit.
-        </p>
+        <p className="metadata mt-4">Keys rotate automatically after a rate limit. Free tiers have limits — keep sensitive text out of prompts.</p>
       )}
       {notice && <p className="mt-2 text-[0.8125rem] font-medium text-[var(--success)]">{notice}</p>}
     </div>
@@ -276,6 +271,8 @@ export default function KeyManagerModal({
   account,
   prefs,
   onPrefsChange,
+  theme = 'system',
+  onThemeChange,
   onDisconnectGoogle,
   onDisconnectNotion,
   onDisconnectIcs,
@@ -284,14 +281,6 @@ export default function KeyManagerModal({
   onExportData,
   onDeleteData,
 }) {
-  useEffect(() => {
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
-
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [localBaseUrl, setLocalBaseUrl] = useState('http://localhost:11434')
   const [localModel, setLocalModel] = useState('llama3.1')
@@ -316,36 +305,26 @@ export default function KeyManagerModal({
     setLocalModel('')
   }
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(28,27,25,0.5)] p-3 sm:p-6"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="API keys and settings"
-        className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)]"
-      >
-        <div className="flex items-start justify-between gap-3 border-b border-[var(--line)] px-5 py-5 sm:px-7">
-          <div>
-            <h2 className="modal-title">Keys & settings</h2>
-            <p className="metadata mt-1">Add as many keys as you like. If one hits its limit, Briefr uses the next.</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close key manager"
-            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg text-[var(--faint)] hover:bg-[var(--paper)] hover:text-[var(--ink)]"
-          >
-            <X size={18} />
-          </button>
-        </div>
+  const footer = (
+    <>
+      <div className="flex flex-wrap items-center gap-4">
+        <span className="metadata">{keys.length} key{keys.length === 1 ? '' : 's'} saved on this device</span>
+        <button type="button" onClick={onResetDemo} className="danger-button">Reset Briefr</button>
+      </div>
+      <button type="button" onClick={onClose} className="primary-button">Close settings</button>
+    </>
+  )
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7">
-          <div className="mt-6 border-t border-[var(--line)] pt-5">
+  return (
+    <Modal
+      label="API keys and settings"
+      title="Keys & settings"
+      description="Add as many keys as you like. If one hits its limit, Briefr uses the next."
+      onClose={onClose}
+      footer={footer}
+    >
+      <div>
+        <div className="border-t border-[var(--line)] pt-5">
             <h3 className="reading-title">News lens</h3>
             <p className="metadata mt-1">Changes which stories rise to the top. Weather and your schedule stay untouched.</p>
             <select
@@ -380,6 +359,18 @@ export default function KeyManagerModal({
                 </div>
               )}
             <p className="metadata mt-2">Saved with your preferences. Switch back any time.</p>
+
+            <div className="mt-5">
+              <p className="reading-title">Appearance</p>
+              <p className="metadata mt-1">System follows your device setting.</p>
+              <Segmented
+                options={['System', 'Light', 'Dark']}
+                value={theme.charAt(0).toUpperCase() + theme.slice(1)}
+                onChange={(value) => onThemeChange?.(value.toLowerCase())}
+                className="mt-2"
+              />
+            </div>
+
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 type="button"
@@ -434,7 +425,7 @@ export default function KeyManagerModal({
             )}
             <p className="metadata mt-2 truncate font-mono">Saved as: {cacheKey}</p>
             <button type="button" onClick={onForceRefresh} className="quiet-button mt-4">
-              Get a fresh version now
+              Refresh briefing
             </button>
           </div>
 
@@ -500,17 +491,6 @@ export default function KeyManagerModal({
             )}
           </div>
         </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] bg-[var(--paper)] px-5 py-4 sm:px-7">
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="metadata">{keys.length} key{keys.length === 1 ? '' : 's'} saved on this device</span>
-            <button type="button" onClick={onResetDemo} className="danger-button">
-              <Trash2 size={14} aria-hidden="true" /> Start fresh
-            </button>
-          </div>
-          <button type="button" onClick={onClose} className="primary-button">Done</button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

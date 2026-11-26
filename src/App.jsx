@@ -28,6 +28,7 @@ import { applyRateLimit, getKeyStatus, isKeyEligible, pingKey, runWithRotation }
 import { buildFallbackWardrobe, buildTriagePrompt, triageLocally } from './lib/prompts.js'
 import { buildBriefingScript } from './lib/audioBriefing.js'
 import { playAlertTone } from './lib/alertSound.js'
+import { applyTheme, readTheme, storeTheme } from './lib/theme.js'
 import { MOCK_NEWS_ITEMS, runMorningBriefing } from './lib/digestRunner.js'
 import { bootstrapAuth, deleteAccount, getCurrentAccount, onAuthChange } from './lib/accountService.js'
 import { clearCachedDigest, exportAccountData, loadCloudData, saveCloudData } from './lib/db.js'
@@ -59,6 +60,8 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false)
   const [toast, setToast] = useState(null)
   const [calendarNonce, setCalendarNonce] = useState(0)
+  const [theme, setTheme] = useState(readTheme)
+  const [resolvedTheme, setResolvedTheme] = useState(() => applyTheme(readTheme()))
   const runCounterRef = useRef(0)
 
   const [weather, setWeather] = useState(mockWeather)
@@ -162,6 +165,23 @@ export default function App() {
     },
     [],
   )
+
+  // Theme follows the OS only while the preference is "system".
+  useEffect(() => {
+    storeTheme(theme)
+    setResolvedTheme(applyTheme(theme))
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const onChange = () => {
+      if (theme === 'system') setResolvedTheme(applyTheme('system'))
+    }
+    media.addEventListener?.('change', onChange)
+    return () => media.removeEventListener?.('change', onChange)
+  }, [theme])
+
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) meta.content = resolvedTheme === 'dark' ? '#14130f' : '#f7f6f2'
+  }, [resolvedTheme])
 
   // Restore the Supabase session (or stay in local-only mode) on reload.
   useEffect(() => {
@@ -621,7 +641,7 @@ export default function App() {
 
         <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 pt-5">
           <span className="font-display text-[1.0625rem] font-semibold tracking-[-0.02em] text-[var(--muted)]">Briefr</span>
-          <p className="metadata">Free weather · Keys stay in this browser · Nothing to pay</p>
+          <p className="metadata">Free weather · Keys stay on this device</p>
         </footer>
       </main>
 
@@ -652,6 +672,8 @@ export default function App() {
           account={account}
           prefs={prefs}
           onPrefsChange={updateSettings}
+          theme={theme}
+          onThemeChange={setTheme}
           onDisconnectGoogle={disconnectGoogle}
           onDisconnectNotion={disconnectNotion}
           onDisconnectIcs={disconnectIcs}
