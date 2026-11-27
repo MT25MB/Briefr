@@ -23,13 +23,17 @@ export const onRequestGet = async ({ request }) => {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(params.get('date') ?? '')
     ? params.get('date')
     : new Date().toISOString().slice(0, 10)
-  const { status, body } = await fetchIcsFeed({
-    url: params.get('url'),
-    date,
-    source: params.get('source') ?? 'Calendar',
-    timeZone: params.get('timeZone') || 'UTC',
-  })
-  return json(body, status)
+  try {
+    const { status, body } = await fetchIcsFeed({
+      url: params.get('url'),
+      date,
+      source: params.get('source') ?? 'Calendar',
+      timeZone: params.get('timeZone') || 'UTC',
+    })
+    return json(body, status)
+  } catch {
+    return json({ error: 'Calendar link could not be read', items: [] }, 502)
+  }
 }
 
 export const onRequest = onRequestGet

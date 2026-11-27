@@ -156,9 +156,24 @@ export async function runMorningDigest({
           newsDigest = newsRun.data
           newsSource = 'ai'
           newsRankMeta = newsRun.meta
+        } else {
+          newsRankMeta = {
+            source: 'fallback',
+            rotationNote: 'The news response was incomplete, so Briefr kept the raw headlines.',
+          }
         }
       } catch {
-        // Keep raw headlines.
+        // Keep raw headlines and explain why.
+        newsRankMeta = {
+          source: 'fallback',
+          rotationNote: 'Every key was busy, so Briefr kept the raw headlines.',
+        }
+      }
+    }
+    if (feed.offline && !newsDigest && !newsRankMeta) {
+      newsRankMeta = {
+        source: 'fallback',
+        rotationNote: 'Feed sources were offline, so Briefr kept the preview headlines.',
       }
     }
   }

@@ -285,8 +285,10 @@ export async function fetchIcsFeed({ url, date, source = 'Calendar', timeZone = 
     if (text === null) return { status: 413, body: { error: 'Calendar feed too large', items: [] } }
     return { status: 200, body: { items: parseIcsFeed(text, { source, date, timeZone }) } }
   } catch (error) {
-    const message = error.name === 'AbortError' ? 'Calendar link timed out' : error.message ?? 'Calendar link could not be read'
-    return { status: error.status ?? 502, body: { error: message, items: [] } }
+    if (error.name === 'AbortError') {
+      return { status: 408, body: { error: 'Calendar link timed out', items: [] } }
+    }
+    return { status: error.status ?? 502, body: { error: error.message ?? 'Calendar link could not be read', items: [] } }
   } finally {
     clearTimeout(timeout)
   }

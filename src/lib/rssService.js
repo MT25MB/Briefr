@@ -1,4 +1,5 @@
 // Feed presets + parallel fetching through the stateless /api/rss endpoint.
+import { dedupeRequest, getCachedResponse, setCachedResponse } from './storage.js'
 const googleNews = (query) =>
   `https://news.google.com/rss/search?q=${encodeURIComponent(`${query} when:1d`)}&hl=en-US&gl=US&ceid=US:en`
 
@@ -97,20 +98,33 @@ function relativeTime(pubDate) {
   return `${Math.round(hours / 24)}d ago`
 }
 
-async function fetchOneFeed(feed) {
-  const response = await fetch(`/api/rss?url=${encodeURIComponent(feed.url)}`)
-  if (!response.ok) throw new Error(`${feed.label} (${response.status})`)
-  const data = await response.json()
-  if (data.error) throw new Error(`${feed.label}: ${data.error}`)
-  return (data.items ?? []).map((item) => ({
-    title: stripHtml(item.title),
-    link: safeHref(item.link),
-    pubDate: item.pubDate,
-    description: stripHtml(item.description),
+function withFeedMeta(items, feed) {
+  return items.map((item) => ({
+    ...item,
     source: feed.label,
     category: feed.category,
     time: relativeTime(item.pubDate),
   }))
+}
+
+async function fetchOneFeed(feed) {
+  const key = `rss:${feed.category}:${feed.url}`
+  const cached = getCachedResponse(key)
+  if (cached) return withFeedMeta(cached, feed)
+
+  return dedupeRequest(key, async () => {
+    const response = await fetch(`/api/rss?url=${encodeURIComponent(feed.url)}`)
+    if (!response.ok) throw new Error(`${feed.label} (${response.status})`)
+    const data = await response.json()
+    if (data.error) throw new Error(`${feed.label}: ${data.error}`)
+    const items = (data.items ?? []).map((item) => ({
+      title: stripHtml(item.title),
+      link: safeHref(item.link),
+      pubDate: item.pubDate,
+      description: stripHtml(item.description),
+    }))
+    return setCachedResponse(key, items)
+  }).then((items) => withFeedMeta(items, feed))
 }
 
 export async function fetchNewsDigest({

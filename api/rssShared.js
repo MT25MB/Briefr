@@ -4,8 +4,9 @@ const USER_AGENT = 'Briefr/1.0 (+https://briefr.app) RSS reader'
 const MAX_XML_BYTES = 2_000_000
 const MAX_ITEMS = 30
 
-// Feed responses can reflect validated-but-hostile content; never cache publicly.
-export const EDGE_CACHE = 'no-store'
+// Public feeds are cached at the edge; only validated 200 responses use this.
+// Errors and validation failures always stay no-store (set by the function).
+export const EDGE_CACHE = 'public, max-age=900, s-maxage=1800, stale-while-revalidate=3600'
 
 export function validateFeedUrl(raw) {
   if (!raw) throw Object.assign(new Error('Missing url parameter'), { status: 400 })
@@ -155,8 +156,10 @@ export async function fetchFeed(rawUrl) {
     }
     return { status: 200, body: { items: parseFeed(xml).filter((item) => item.title && item.link) } }
   } catch (error) {
-    const message = error.name === 'AbortError' ? 'Feed timed out' : error.message ?? 'Could not fetch feed'
-    return { status: error.status ?? 502, body: { error: message, items: [] } }
+    if (error.name === 'AbortError') {
+      return { status: 408, body: { error: 'Feed timed out', items: [] } }
+    }
+    return { status: error.status ?? 502, body: { error: error.message ?? 'Could not fetch feed', items: [] } }
   } finally {
     clearTimeout(timeout)
   }

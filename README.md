@@ -81,7 +81,9 @@ This setting only affects which news stories get ranked higher and how they're s
 
 You can also deploy from the command line with `npx wrangler pages deploy dist --project-name=briefr`.
 
-The RSS endpoint is stateless. It checks that feed URLs are public `http`/`https` addresses, gives up after eight seconds, and caches successful feed results at the edge for 15 minutes. Hashed build files also get long-lived caching through `public/_headers`. The ICS endpoint only accepts `https` and blocks private addresses.
+The RSS endpoint is stateless. It validates that feed URLs are public `http`/`https` addresses, rejects redirects into private ranges, and returns clean `400`, `408` (timeout), and `502` errors with `Cache-Control: no-store`. Successful feeds use `Cache-Control: public, max-age=900, s-maxage=1800, stale-while-revalidate=3600`. The browser shares simultaneous requests for the same feed or calendar through one in-flight promise and reuses public feed results briefly in memory. Hashed build files also get long-lived caching through `public/_headers`. The ICS endpoint only accepts `https`, blocks private addresses, times out cleanly, and always returns `Cache-Control: no-store` because calendar links can be private.
+
+LLM keys rotate on `429` (per-minute cooldown or daily exhaustion), `401`/`403`, and transient `5xx` across Gemini, Groq, OpenRouter, and local Ollama. When a key rotates or Briefr falls back to deterministic weather, raw headlines, or on-device inbox sorting, a calm non-blocking status banner explains that everything still works and offers Key settings or a retry. Run `npm run verify:milestone14` to check edge headers, structured errors, private ICS responses, request deduplication, quota guardrails, and the banner contract.
 
 ### Environment variables
 

@@ -322,6 +322,41 @@ export function clearDigestCache() {
   writeJson(CACHE_KEY, {})
 }
 
+// Short-lived, in-memory cache for public feed responses. Private calendar
+// data is deduplicated but never persisted here.
+const RESPONSE_TTL_MS = 15 * 60_000
+const responseCache = new Map()
+const inFlightRequests = new Map()
+
+export function getCachedResponse(key, ttlMs = RESPONSE_TTL_MS) {
+  const entry = responseCache.get(key)
+  if (!entry) return null
+  if (Date.now() - entry.savedAt > ttlMs) {
+    responseCache.delete(key)
+    return null
+  }
+  return entry.value
+}
+
+export function setCachedResponse(key, value, ttlMs = RESPONSE_TTL_MS) {
+  responseCache.set(key, { value, savedAt: Date.now(), ttlMs })
+  return value
+}
+
+export function clearResponseCache() {
+  responseCache.clear()
+}
+
+// Concurrent callers for the same key share one promise.
+export function dedupeRequest(key, task) {
+  if (inFlightRequests.has(key)) return inFlightRequests.get(key)
+  const promise = Promise.resolve()
+    .then(task)
+    .finally(() => inFlightRequests.delete(key))
+  inFlightRequests.set(key, promise)
+  return promise
+}
+
 export function clearAllStorage() {
   wipeScope(getActiveAccountId())
   try {

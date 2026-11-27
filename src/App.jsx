@@ -10,7 +10,7 @@ import KeyManagerModal from './components/KeyManagerModal.jsx'
 import CalendarSourcesModal from './components/CalendarSourcesModal.jsx'
 import AccountModal from './components/AccountModal.jsx'
 import { CardBoundary } from './components/ErrorBoundary.jsx'
-import RotationStatusBanner from './components/RotationStatusBanner.jsx'
+import StatusBanner from './components/StatusBanner.jsx'
 import MorningChecklist from './components/MorningChecklist.jsx'
 import { prepareSchedule } from './lib/schedule.js'
 import { digest, mockWeather } from './lib/mockDigest.js'
@@ -27,7 +27,14 @@ import {
   saveQuickEvent,
   todayKey,
 } from './lib/storage.js'
-import { applyRateLimit, getKeyStatus, isKeyEligible, pingKey, runWithRotation } from './lib/llmRotator.js'
+import {
+  applyRateLimit,
+  getKeyStatus,
+  isKeyEligible,
+  pingKey,
+  quotaSnapshot,
+  runWithRotation,
+} from './lib/llmRotator.js'
 import { buildFallbackWardrobe } from './lib/prompts.js'
 import {
   clearTriage,
@@ -663,6 +670,36 @@ export default function App() {
     triage.needsAction.filter((item) => !item.done && item.scheduleNote).length
   const scrollToCard = (id) => document.getElementById(id)?.scrollIntoView({ block: 'start' })
 
+  // One quiet line explains rotation or fallback. It never blocks the briefing.
+  const quota = quotaSnapshot(keys, now)
+  const rotationNotes = [rotationMeta?.rotationNote, newsRankMeta?.rotationNote].filter(Boolean)
+  const fallbacks = []
+  if (rotationMeta?.source === 'fallback') fallbacks.push('outfit advice')
+  if (newsRankMeta?.source === 'fallback') fallbacks.push('news ranking')
+  if (keys.length && triage.source === 'rules' && triage.dateKey === today && triage.needsAction.length) {
+    fallbacks.push('inbox sorting')
+  }
+  let statusBanner = { state: 'quiet' }
+  if (quota.exhausted) {
+    statusBanner = {
+      state: 'fallback',
+      title: 'Every key is resting or used up for today.',
+      detail: 'Briefr is using built-in weather, news, and inbox rules. Your briefing still works. Add another free key whenever you like.',
+    }
+  } else if (keys.length && fallbacks.length) {
+    statusBanner = {
+      state: 'fallback',
+      title: `Using built-in ${fallbacks.join(' and ')}.`,
+      detail: 'A provider was busy or unavailable. Nothing is broken, and the rest of your morning is ready.',
+    }
+  } else if (rotationNotes.length) {
+    statusBanner = {
+      state: 'rotated',
+      title: 'A key was rotated automatically.',
+      detail: rotationNotes.join(' '),
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[var(--paper)]">
       <TopNav
@@ -683,7 +720,13 @@ export default function App() {
       />
 
       <main className="mx-auto max-w-[1440px] px-4 pb-28 pt-6 sm:px-6 lg:pb-10 lg:px-8">
-        <RotationStatusBanner meta={rotationMeta} keys={keys} onManage={() => setShowKeyManager(true)} />
+        <StatusBanner
+          state={statusBanner.state}
+          title={statusBanner.title}
+          detail={statusBanner.detail}
+          onManage={() => setShowKeyManager(true)}
+          onRetry={() => runMorning({ forceRefresh: true })}
+        />
 
         {showSetupBanner && (
           <div className="mb-6 flex flex-col items-start gap-3 py-4 sm:flex-row sm:items-center sm:gap-x-6">

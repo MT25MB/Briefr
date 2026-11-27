@@ -1,5 +1,5 @@
 // Calendar adapters. Tokens stay in this browser; no Briefr server is involved.
-import { loadCalendars, loadQuickEvents, saveCalendars, todayKey } from './storage.js'
+import { dedupeRequest, loadCalendars, loadQuickEvents, saveCalendars, todayKey } from './storage.js'
 import { parseIcsFeed, validateIcsUrl, zonedDayBounds } from '../../api/icsShared.js'
 
 const GOOGLE_SCOPES = [
@@ -28,6 +28,11 @@ function randomString() {
   const bytes = new Uint8Array(24)
   crypto.getRandomValues(bytes)
   return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+// Simultaneous cards/runs asking for the same calendar share one request.
+function dedupeCalendar(key, task) {
+  return dedupeRequest(`calendar:${key}`, task)
 }
 
 function base64Url(buffer) {
@@ -144,7 +149,7 @@ export async function startGoogleOAuthPkce({ clientId, redirectUri = window.loca
   window.location.assign(`${GOOGLE_AUTH_URL}?${params}`)
 }
 
-export async function fetchGoogleEvents({ token, date = todayKey() }) {
+async function readGoogleEvents({ token, date = todayKey() }) {
   if (!token) return []
   const { start, end } = dayBounds(date)
   const items = []
@@ -187,6 +192,12 @@ export async function fetchGoogleEvents({ token, date = todayKey() }) {
         notes: item.description,
       }),
     )
+}
+
+export function fetchGoogleEvents(args = {}) {
+  if (!args.token) return Promise.resolve([])
+  const date = args.date ?? todayKey()
+  return dedupeCalendar(`google:${String(args.token).slice(-6)}:${date}`, () => readGoogleEvents(args))
 }
 
 // ---------- Notion (integration token or OAuth through a proxy) ----------
@@ -266,7 +277,7 @@ function overlapsLocalDay(start, end, date) {
   return from <= dayEnd && until >= dayStart
 }
 
-export async function fetchNotionEvents({ token, databaseId, date = todayKey() }) {
+async function readNotionEvents({ token, databaseId, date = todayKey() }) {
   if (!token || !databaseId) return []
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -342,6 +353,12 @@ export async function fetchNotionEvents({ token, databaseId, date = todayKey() }
     .filter(Boolean)
 }
 
+export function fetchNotionEvents(args = {}) {
+  if (!args.token || !args.databaseId) return Promise.resolve([])
+  const date = args.date ?? todayKey()
+  return dedupeCalendar(`notion:${args.databaseId}:${date}`, () => readNotionEvents(args))
+}
+
 // ---------- ICS / iCalendar (Apple, Proton, and other calendar links) ----------
 
 function localTimeZone() {
@@ -404,13 +421,21 @@ async function itemsFromIcsService({ url, date, source, proxyUrl }) {
   }
 }
 
-export async function fetchIcsEvents({ url, source = 'Apple', date = todayKey(), proxyUrl = '' }) {
-  if (!url) return []
+async function readIcsEvents({ url, source = 'Apple', date = todayKey(), proxyUrl = '' }) {
   const items = await itemsFromIcsService({ url, date, source, proxyUrl })
   return items.map((item) => normalizeEvent({ ...item, source }))
 }
 
-export async function fetchCaldavEvents({ proxyUrl, calendarUrl, date = todayKey(), source = 'Apple' }) {
+export function fetchIcsEvents(args = {}) {
+  if (!args.url) return Promise.resolve([])
+  const date = args.date ?? todayKey()
+  return dedupeCalendar(
+    `ics:${args.url}:${date}:${args.source ?? 'Apple'}`,
+    () => readIcsEvents(args),
+  )
+}
+
+async function readCaldavEvents({ proxyUrl, calendarUrl, date = todayKey(), source = 'Apple' }) {
   if (!proxyUrl || !calendarUrl) return []
   if (!safeUrl(proxyUrl)) throw new Error('Add a valid CalDAV proxy address.')
   const response = await fetch(proxyUrl, {
@@ -425,6 +450,12 @@ export async function fetchCaldavEvents({ proxyUrl, calendarUrl, date = todayKey
     return (data.items ?? []).map((item) => normalizeEvent({ ...item, source }))
   }
   return parseIcs(await response.text(), source, date)
+}
+
+export function fetchCaldavEvents(args = {}) {
+  if (!args.proxyUrl || !args.calendarUrl) return Promise.resolve([])
+  const date = args.date ?? todayKey()
+  return dedupeCalendar(`caldav:${args.calendarUrl}:${date}`, () => readCaldavEvents(args))
 }
 
 // ---------- Unified view ----------

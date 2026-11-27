@@ -29,7 +29,11 @@ assert.throws(() => validateFeedUrl('http://2130706433/'), /Private/)
 assert.throws(() => validateFeedUrl('http://0x7f000001/'), /Private/)
 assert.throws(() => validateFeedUrl('http://[::1]/'), /Private/)
 assert.equal(validateFeedUrl('https://example.com/feed.xml').protocol, 'https:')
-assert.equal(read('api/rssShared.js').includes("export const EDGE_CACHE = 'no-store'"), true)
+assert.match(
+  read('api/rssShared.js'),
+  /export const EDGE_CACHE = 'public, max-age=900, s-maxage=1800, stale-while-revalidate=3600'/,
+)
+assert.match(read('functions/api/rss.js'), /'Cache-Control': cache \? EDGE_CACHE : 'no-store'/)
 
 let calls = []
 globalThis.fetch = async (url) => {

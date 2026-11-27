@@ -64,26 +64,46 @@ export function markInvalid(keys, keyId) {
   )
 }
 
-export function applyRateLimit(keys, keyId, { daily = false, now = Date.now() } = {}) {
+export function applyRateLimit(keys, keyId, { daily = false, retryAfterSeconds = 0, now = Date.now() } = {}) {
+  const waitMs = retryAfterSeconds
+    ? Math.min(retryAfterSeconds * 1000, 15 * 60_000)
+    : COOLDOWN_MS
   return keys.map((key) =>
     key.id === keyId
       ? {
           ...key,
           dailyExhausted: daily || Boolean(key.dailyExhausted),
-          cooldownUntil: daily ? key.cooldownUntil : now + COOLDOWN_MS,
+          cooldownUntil: daily ? key.cooldownUntil : now + waitMs,
           lastError: daily ? 'Daily quota reached' : 'Rate limited (429)',
         }
       : key,
   )
 }
 
-function isDailyQuota(response) {
+export function isDailyQuota(response) {
   const body = String(response.text ?? '').toLowerCase()
   const retryAfter = Number(response.headers?.get?.('retry-after'))
   return (
-    /daily quota|quota.*(per day|day)|daily limit|resource_exhausted|reached.*(limit|quota)/.test(body) ||
+    /daily quota|quota.*(per day|day|exceeded)|daily limit|resource_exhausted|reached.*(limit|quota)|free tier.*(limit|exhausted)|too many requests.*day/.test(body) ||
     retryAfter > 3600
   )
+}
+
+// A quiet summary the UI can show without exposing key material.
+export function quotaSnapshot(keys = [], now = Date.now()) {
+  const counts = { ready: 0, cooldown: 0, daily: 0, invalid: 0 }
+  keys.forEach((key) => {
+    counts[getKeyStatus(key, now)] += 1
+  })
+  const waits = keys
+    .filter((key) => getKeyStatus(key, now) === 'cooldown')
+    .map((key) => Math.max(1, Math.ceil((Number(key.cooldownUntil) - now) / 1000)))
+  return {
+    ...counts,
+    total: keys.length,
+    exhausted: keys.length > 0 && counts.ready === 0,
+    nextCooldownSeconds: waits.length ? Math.min(...waits) : null,
+  }
 }
 
 function isInvalidKey(response) {
@@ -209,7 +229,8 @@ export async function runWithRotation({
 
       if (response.status === 429) {
         const daily = isDailyQuota(response)
-        workingKeys = applyRateLimit(workingKeys, key.id, { daily })
+        const retryAfterSeconds = Number(response.headers?.get?.('retry-after')) || 0
+        workingKeys = applyRateLimit(workingKeys, key.id, { daily, retryAfterSeconds })
         note(
           daily
             ? `${config.label} reached its daily limit, so Briefr moved to the next available key.`
@@ -223,7 +244,11 @@ export async function runWithRotation({
 
       if (isInvalidKey(response)) {
         workingKeys = markInvalid(workingKeys, key.id)
-        note(`${config.label} key wasn't accepted, so Briefr moved to the next key.`)
+        note(
+          response.status === 403
+            ? `${config.label} key doesn't have access, so Briefr moved to the next key.`
+            : `${config.label} key wasn't accepted, so Briefr moved to the next key.`,
+        )
         rotatedCount += 1
         persist()
         break
