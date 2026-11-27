@@ -13,7 +13,7 @@ npm run dev
 
 Open <http://localhost:5173>. To check the production build, run `npm run build` and then `npm run preview`.
 
-On this Windows setup, use `npm.cmd` because PowerShell blocks `npm.ps1`.
+On this Windows setup, use `npm.cmd` because PowerShell blocks `npm.ps1`. Run `npm test` for the automated unit suite (Node's built-in runner, no extra dependency) and `npm run verify:milestone16` for the security and accessibility audit.
 
 ## What's inside
 

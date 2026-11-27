@@ -70,6 +70,7 @@ export default function LocationSearch({ id = 'location', value, onChange }) {
             }
           }}
           role="combobox"
+          aria-label="Location search"
           aria-expanded={open}
           aria-autocomplete="list"
           placeholder="Start typing a city or ZIP"

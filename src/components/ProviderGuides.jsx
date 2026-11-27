@@ -34,7 +34,7 @@ export default function ProviderGuides() {
             <a
               href={provider.link}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="mt-3 inline-flex min-h-12 items-center gap-1 text-[0.875rem] font-semibold text-[var(--accent)] hover:underline"
             >
               {provider.linkLabel} <ExternalLink size={10} />

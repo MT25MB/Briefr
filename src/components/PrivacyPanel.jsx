@@ -122,7 +122,7 @@ export default function PrivacyPanel({
           Delete account & data
         </button>
       </div>
-      <p className="metadata mt-3">No secrets in VITE_* variables</p>
+      <p className="metadata mt-3">No secrets in build variables</p>
     </div>
   )
 }

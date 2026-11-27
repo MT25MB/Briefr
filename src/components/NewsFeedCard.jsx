@@ -51,7 +51,7 @@ function Story({ story }) {
         <a
           href={safeHref(story.url)}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           className="mt-3 inline-flex min-h-12 items-center gap-1 text-[0.875rem] font-semibold text-[var(--accent)] hover:underline"
         >
           Read the source <ArrowUpRight size={13} aria-hidden="true" />
@@ -66,7 +66,7 @@ function RawList({ items }) {
     <ul>
       {items.map((item, index) => (
         <li key={`${item.link}-${index}`}>
-          <a href={safeHref(item.link) || '#'} target="_blank" rel="noreferrer" className="group block min-h-16 py-4">
+          <a href={safeHref(item.link) || '#'} target="_blank" rel="noopener noreferrer" className="group block min-h-16 py-4">
             <span className="block text-[0.9375rem] font-medium leading-snug text-[var(--ink)] group-hover:text-[var(--accent)]">
               {item.title}
             </span>

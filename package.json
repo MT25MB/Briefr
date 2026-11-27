@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "test": "node --test",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -16,7 +17,8 @@
     "verify:digest": "node scripts/verify-digest.mjs",
     "verify:audit": "node scripts/verify-audit.mjs",
     "verify:milestone14": "node scripts/verify-milestone14.mjs",
-    "verify:milestone15": "node scripts/verify-milestone15.mjs"
+    "verify:milestone15": "node scripts/verify-milestone15.mjs",
+    "verify:milestone16": "node scripts/verify-milestone16.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.2",
