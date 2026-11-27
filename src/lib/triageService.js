@@ -52,6 +52,43 @@ export function clearTriage(date = todayKey()) {
   return cleared
 }
 
+// Emails, texts, and Slack/Discord snippets often arrive as one paste. Split
+// on clear boundaries so each message can be sorted on its own.
+export function splitMessages(raw = '') {
+  const lines = String(raw ?? '').replace(/\r\n?/g, '\n').split('\n')
+  const chunks = []
+  let current = []
+  const hasContent = () => current.some((line) => line.trim())
+  const flush = () => {
+    const value = current.join('\n').trim()
+    if (value) chunks.push(value)
+    current = []
+  }
+
+  lines.forEach((line) => {
+    const trimmed = line.trim()
+    const startsForwarded =
+      hasContent() && /^(?:from|sender)\s*:/i.test(trimmed)
+    const startsQuotedReply = hasContent() && /^on\s+.+\s+wrote:\s*$/i.test(trimmed)
+    const startsSecondSubject =
+      hasContent() &&
+      /^subject\s*:/i.test(trimmed) &&
+      current.some((entry) => /^subject\s*:/i.test(entry.trim()))
+    const startsChat =
+      /^\[?\d{1,2}:\d{2}\s?(?:am|pm)\]?\s+[^:]{1,40}:/i.test(trimmed) ||
+      /^[^:\n]{1,40}\s+\d{1,2}:\d{2}\s?(?:am|pm)\s*:?/i.test(trimmed)
+    const separator = /^\s*(?:[-*_]\s*){3,}\s*$/.test(trimmed)
+
+    if (separator || startsForwarded || startsQuotedReply || startsSecondSubject || startsChat) {
+      flush()
+      if (separator) return
+    }
+    current.push(line)
+  })
+  flush()
+  return chunks
+}
+
 const text = (value, limit = 240) => String(value ?? '').trim().slice(0, limit)
 const itemId = (prefix, index, label = '') =>
   `${prefix}-${index}-${label.replace(/[^a-z0-9]/gi, '').slice(0, 12) || 'item'}`
@@ -88,6 +125,25 @@ export function normalizeTriageResult(data = {}, { source = 'rules', date = toda
   }
 }
 
+function mergeTriageParts(parts = [], { source = 'rules', date = todayKey() } = {}) {
+  const combined = parts.reduce(
+    (acc, part) => {
+      acc.needsAction.push(...(part.needsAction ?? []))
+      acc.fyi.push(...(part.fyi ?? []))
+      const partNoise = part.noiseItems ?? part.noise ?? []
+      acc.noiseItems.push(...partNoise)
+      acc.noiseCount += typeof part.noiseCount === 'number' ? part.noiseCount : partNoise.length
+      return acc
+    },
+    { needsAction: [], fyi: [], noiseItems: [], noiseCount: 0 },
+  )
+  const normalized = normalizeTriageResult(combined, { source, date })
+  return {
+    ...normalized,
+    noiseCount: Math.max(combined.noiseCount, normalized.noiseItems.length),
+  }
+}
+
 export function setTriageItemDone(triage, id, done = true) {
   const next = {
     ...triage,
@@ -112,8 +168,12 @@ export async function triageMessages({
   const input = String(rawText || legacyText || '').trim()
   if (!input) return emptyTriage(date)
 
+  const messages = splitMessages(input)
   const fallback = () =>
-    normalizeTriageResult(triageLocally(input, schedule, tone), { source: 'rules', date })
+    mergeTriageParts(
+      messages.map((message) => triageLocally(message, schedule, tone)),
+      { source: 'rules', date },
+    )
 
   if (!keys.length) return saveTriage(fallback())
 

@@ -8,7 +8,7 @@ const TABS = [
   { key: 'noiseItems', label: 'Newsletters & promos' },
 ]
 
-function ActionItem({ item, copied, onComplete, onCopy }) {
+function ActionItem({ item, copied, onComplete, onCopy, onCopyChecklist }) {
   return (
     <li className={`border-b border-[var(--line)] py-4 last:border-0 ${item.done ? 'opacity-60' : ''}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -25,10 +25,19 @@ function ActionItem({ item, copied, onComplete, onCopy }) {
         <p className="metadata mt-2 text-[var(--warning)]">{item.scheduleNote}</p>
       )}
       <div className="mt-3 flex flex-wrap gap-3">
-        {!item.done && (
+        {item.done ? (
           <button
             type="button"
-            onClick={() => onComplete(item.id)}
+            onClick={() => onComplete(item.id, false)}
+            aria-pressed
+            className="quiet-button"
+          >
+            Undo
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onComplete(item.id, true)}
             aria-pressed={false}
             className="quiet-button"
           >
@@ -37,9 +46,12 @@ function ActionItem({ item, copied, onComplete, onCopy }) {
         )}
         {item.suggestedAction && (
           <button type="button" onClick={() => onCopy(item)} className="quiet-button">
-            {copied ? 'Copied' : 'Copy draft reply'}
+            {copied === item.id ? 'Copied' : 'Copy draft reply'}
           </button>
         )}
+        <button type="button" onClick={() => onCopyChecklist(item)} className="quiet-button">
+          {copied === `${item.id}:check` ? 'Copied' : 'Copy checklist'}
+        </button>
       </div>
     </li>
   )
@@ -89,6 +101,18 @@ export default function TriageCard({ id, triage, loading = false, onTriage, onCo
     }
   }
 
+  const copyChecklist = async (item) => {
+    const step = item.suggestedAction || item.summary || 'Handle this today.'
+    const line = `- [ ] ${step}${item.urgency ? ` (${item.urgency})` : ''}`
+    try {
+      await navigator.clipboard.writeText(line)
+      setCopied(`${item.id}:check`)
+      window.setTimeout(() => setCopied(''), 1800)
+    } catch {
+      setCopied('')
+    }
+  }
+
   const visible = tab === 'noiseItems' ? noiseItems : triage?.[tab] ?? []
 
   return (
@@ -102,7 +126,7 @@ export default function TriageCard({ id, triage, loading = false, onTriage, onCo
         <section aria-label="Quick paste">
           <h3 className="reading-title">Quick paste</h3>
           <p className="metadata mt-1">
-            Paste an email, chat message, or forwarded note. It's used for this briefing only and isn't saved to a server.
+            Paste one message or several emails, texts, or chat snippets. Each is sorted on its own and nothing is saved to a server.
           </p>
           <label htmlFor="triage-input" className="sr-only">Message to sort</label>
           <textarea
@@ -126,7 +150,7 @@ export default function TriageCard({ id, triage, loading = false, onTriage, onCo
               </button>
             )}
             {hasResult && (
-              <button type="button" onClick={reset} className="quiet-button">Clear / new paste</button>
+              <button type="button" onClick={reset} className="quiet-button">Clear Triage</button>
             )}
           </div>
           {hasResult && (
@@ -203,6 +227,7 @@ export default function TriageCard({ id, triage, loading = false, onTriage, onCo
                     copied={copied === item.id}
                     onComplete={onComplete}
                     onCopy={copyStep}
+                    onCopyChecklist={copyChecklist}
                   />
                 ))
               : visible.map((item) => <SimpleItem key={item.id} item={item} />)}

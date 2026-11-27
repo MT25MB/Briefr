@@ -545,11 +545,11 @@ export default function App() {
     }
   }
 
-  const completeTriageItem = (id) =>
+  const completeTriageItem = (id, done = true) =>
     setTriage((previous) => {
       const next = {
         ...previous,
-        needsAction: previous.needsAction.map((item) => (item.id === id ? { ...item, done: true } : item)),
+        needsAction: previous.needsAction.map((item) => (item.id === id ? { ...item, done } : item)),
       }
       saveTriage(next)
       return next

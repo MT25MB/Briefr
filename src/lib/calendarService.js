@@ -15,6 +15,38 @@ const OAUTH_STATE_KEY = 'briefr_oauth_state'
 const OAUTH_PROVIDER_KEY = 'briefr_oauth_provider'
 const PKCE_KEY = 'briefr_pkce_verifier'
 
+// Shown in the calendar dialog so each source's setup and limits are obvious.
+export const CALENDAR_SOURCE_GUIDES = [
+  {
+    id: 'google',
+    title: 'Google Calendar',
+    instructions:
+      'Create an OAuth client in Google Cloud, add this site as an authorized redirect URI, then connect with your client ID.',
+    limit: 'Read-only events. Briefr reads titles, times, locations and notes, and never changes your calendar.',
+  },
+  {
+    id: 'notion',
+    title: 'Notion',
+    instructions:
+      'Share your database with the integration, then save the database ID and token. Briefr maps a Date property, a title, and optional Status, Location, Notes and Tags properties.',
+    limit: 'Done, archived and cancelled entries are skipped. One database per connection.',
+  },
+  {
+    id: 'apple',
+    title: 'Apple Calendar',
+    instructions:
+      'Export a public ICS link from Apple Calendar, or provide a CalDAV proxy. Paste the https address below.',
+    limit: 'Read-only feed. All-day, multi-day and recurring events are expanded. Private links stay in this browser.',
+  },
+  {
+    id: 'proton',
+    title: 'Proton Calendar',
+    instructions:
+      'Share a calendar in Proton and copy its read-only ICS link. Proton has no public third-party API, so the link is the supported path.',
+    limit: 'Read-only ICS via https. Private links stay in this browser and are never cached at the edge.',
+  },
+]
+
 function safeUrl(url) {
   try {
     const parsed = new URL(url)

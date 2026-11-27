@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AlertTriangle, Trash2 } from 'lucide-react'
 import Modal from './Modal.jsx'
-import { startGoogleOAuthPkce, startNotionOAuth } from '../lib/calendarService.js'
+import { CALENDAR_SOURCE_GUIDES, startGoogleOAuthPkce, startNotionOAuth } from '../lib/calendarService.js'
 
 function Section({ title, note, children }) {
   return (
@@ -60,6 +60,18 @@ export default function CalendarSourcesModal({ connections, onChange, onClose })
       footer={footer}
     >
       <div className="space-y-3">
+          <div className="rounded-lg border border-[var(--line)] bg-[var(--paper)] p-4">
+            <p className="text-[0.8125rem] font-semibold text-[var(--ink)]">What each source can do</p>
+            <ul className="mt-2 space-y-2">
+              {CALENDAR_SOURCE_GUIDES.map((guide) => (
+                <li key={guide.id} className="text-[0.75rem] leading-snug text-[var(--muted)]">
+                  <span className="font-semibold text-[var(--ink)]">{guide.title}: </span>
+                  {guide.instructions} <span className="text-[var(--faint)]">{guide.limit}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
           <Section
             title="Google Calendar"
             note="Read-only access to titles, times and locations. Nothing gets changed."

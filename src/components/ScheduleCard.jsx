@@ -119,6 +119,9 @@ export default function ScheduleCard({
                 ? 'Add a one-off event if something comes up.'
                 : 'Connect a calendar, or add one thing you need to remember today.'}
             </p>
+            <p className="metadata mt-2">
+              Google and Notion use a sign-in. Apple and Proton use a read-only calendar link. All are read-only.
+            </p>
             <div className="mt-4 flex flex-wrap gap-3">
               {!connected && onConnect && (
                 <button type="button" onClick={onConnect} className="primary-button">Connect a calendar</button>

@@ -162,6 +162,31 @@ function parseLine(line) {
   }
 }
 
+function pad(value) {
+  return String(value).padStart(2, '0')
+}
+
+function utcParts(date) {
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+    hour: date.getUTCHours(),
+    minute: date.getUTCMinutes(),
+    second: date.getUTCSeconds(),
+  }
+}
+
+// Step by calendar day, not a fixed 24 hours, so a 9 AM recurrence stays at
+// 9 AM local time across a daylight saving change.
+function addCalendarDays(date, days, timeZone, allDay) {
+  const p = allDay ? utcParts(date) : partsInZone(date, timeZone)
+  const day = new Date(Date.UTC(p.year, p.month - 1, p.day + days))
+  if (allDay) return day
+  const stamp = `${day.getUTCFullYear()}${pad(day.getUTCMonth() + 1)}${pad(day.getUTCDate())}T${pad(p.hour)}${pad(p.minute)}${pad(p.second)}`
+  return zonedWallTimeToDate(stamp, timeZone)
+}
+
 function zonedWallTimeToDate(text, timeZone) {
   const match = String(text).match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?/)
   if (!match) return new Date(text)
@@ -235,26 +260,44 @@ function occurrencesFor(event, bounds, timeZone) {
   )
   const until = rule.UNTIL ? parseIcsDate(rule.UNTIL, {}, timeZone).date : null
   const count = Number(rule.COUNT) || Infinity
-  const exdates = new Set(
-    (event.exdates ?? []).map((item) => {
-      const parts = partsInZone(parseIcsDate(item, {}, timeZone).date, timeZone)
-      return `${parts.year}-${parts.month}-${parts.day}`
-    }),
-  )
+  const dayKey = (date, allDay) => {
+    const parts = allDay ? utcParts(date) : partsInZone(date, timeZone)
+    return `${parts.year}-${parts.month}-${parts.day}`
+  }
+  const exdates = new Set()
+  ;(event.exdates ?? []).forEach((entry) => {
+    const value = typeof entry === 'string' ? entry : entry.value
+    const params = typeof entry === 'string' ? {} : entry.params ?? {}
+    String(value)
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .forEach((item) => {
+        const date = parseIcsDate(item, params, timeZone).date
+        if (!Number.isNaN(date.getTime())) {
+          exdates.add(dayKey(date, params.VALUE === 'DATE' || /^\d{8}$/.test(item)))
+        }
+      })
+  })
   const found = []
   let seen = 0
+  // Unbounded rules can start years ago. Jump close to today without changing
+  // COUNT semantics for rules that use COUNT.
+  const daysBack =
+    count === Infinity ? Math.max(0, Math.floor((bounds.start - original.date) / DAY_MS) - 1) : 0
+  const initial = daysBack
+    ? addCalendarDays(original.date, daysBack, timeZone, original.allDay)
+    : new Date(original.date)
   for (
-    let cursor = new Date(original.date);
+    let cursor = initial;
     cursor <= bounds.end && seen < 800;
-    cursor = new Date(cursor.getTime() + DAY_MS)
+    cursor = addCalendarDays(cursor, 1, timeZone, original.allDay)
   ) {
     if (until && cursor > until) break
     if (cursor < original.date || !rruleMatches(rule, original.date, cursor, timeZone)) continue
     seen += 1
     if (seen > count) break
-    const parts = partsInZone(cursor, timeZone)
-    const key = `${parts.year}-${parts.month}-${parts.day}`
-    if (exdates.has(key)) continue
+    if (exdates.has(dayKey(cursor, original.allDay))) continue
     const end = new Date(cursor.getTime() + duration)
     if (cursor <= bounds.end && end >= bounds.start) found.push({ start: cursor, end, allDay: original.allDay })
   }
@@ -316,7 +359,9 @@ export function parseIcsFeed(text, { source = 'Calendar', date, timeZone = 'UTC'
       end: get('DTEND')?.value ?? '',
       params: startField.params,
       rrule: get('RRULE')?.value ?? '',
-      exdates: fields.filter((field) => field.name === 'EXDATE').map((field) => field.value),
+      exdates: fields
+        .filter((field) => field.name === 'EXDATE')
+        .map((field) => ({ value: field.value, params: field.params })),
     }
     return occurrencesFor(event, bounds, timeZone).map((occurrence, occurrenceIndex) => ({
       id: `${String(source).toLowerCase()}-${event.uid}-${occurrenceIndex}`,

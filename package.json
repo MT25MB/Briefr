@@ -15,7 +15,8 @@
     "verify:calendars": "node scripts/verify-calendars.mjs",
     "verify:digest": "node scripts/verify-digest.mjs",
     "verify:audit": "node scripts/verify-audit.mjs",
-    "verify:milestone14": "node scripts/verify-milestone14.mjs"
+    "verify:milestone14": "node scripts/verify-milestone14.mjs",
+    "verify:milestone15": "node scripts/verify-milestone15.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.2",
