@@ -55,7 +55,7 @@ export default function PrivacyPanel({
         />
         <Row
           label="Active storage mode"
-          detail={cloud ? 'Preferences sync securely with Supabase.' : 'Local only — nothing leaves this device.'}
+          detail={cloud ? 'Preferences sync securely with Supabase.' : 'Local only. Nothing leaves this device.'}
           onDisconnect={cloud ? onSignOut : undefined}
           disconnectLabel="Sign out"
         />
@@ -97,7 +97,7 @@ export default function PrivacyPanel({
             onDisconnect={connections.caldav?.proxyUrl || connections.caldav?.calendarUrl ? onDisconnectCaldav : undefined}
           />
           <Row label="AI keys" detail={`${keyCount} saved in this browser only.`} />
-          <Row label="News lens" detail={`${POLITICAL_LENS_LABELS[prefs.politicalLens] ?? 'Neutral / Balanced'} — used only to rank and frame news.`} />
+          <Row label="News lens" detail={`${POLITICAL_LENS_LABELS[prefs.politicalLens] ?? 'Neutral / Balanced'}, used only to rank and frame news.`} />
         </div>
       </div>
 

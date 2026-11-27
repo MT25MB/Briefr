@@ -30,7 +30,7 @@ export default function LocationSearch({ id = 'location', value, onChange }) {
       } catch {
         if (cancelled) return
         setResults([])
-        setError('Search is unavailable — you can still type a city or ZIP.')
+        setError('Search is unavailable, but you can still type a city or ZIP.')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -102,7 +102,7 @@ export default function LocationSearch({ id = 'location', value, onChange }) {
             ))
           ) : (
             <p className="px-3 py-3 text-[0.8125rem] text-[var(--faint)]">
-              {error || (loading ? 'Looking up places…' : 'No matches yet — keep typing or use your own text.')}
+              {error || (loading ? 'Looking up places…' : 'No matches yet. Keep typing or use your own text.')}
             </p>
           )}
         </div>

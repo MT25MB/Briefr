@@ -246,7 +246,7 @@ export default function App() {
       setToday(key)
       setTriage(emptyTriage(key))
       setCalendarNonce((value) => value + 1)
-      setToast({ tone: 'neutral', message: 'A new day — today’s schedule and triage are fresh.' })
+      setToast({ tone: 'neutral', message: 'A new day. Today’s schedule and triage are fresh.' })
     }, 60_000)
     return () => window.clearInterval(timer)
   }, [today])
@@ -529,7 +529,7 @@ export default function App() {
       if (seq !== triageSeqRef.current) return // a newer paste already landed
       setTriage(next)
       if (keysSnapshot.length && next.source === 'rules') {
-        setToast({ tone: 'warn', message: "Couldn't use AI for this — sorted it on your device instead." })
+        setToast({ tone: 'warn', message: "Couldn't use AI for this, so I sorted it on your device instead." })
       }
     } finally {
       if (seq === triageSeqRef.current) setTriageLoading(false)
@@ -689,7 +689,7 @@ export default function App() {
           <div className="mb-6 flex flex-col items-start gap-3 py-4 sm:flex-row sm:items-center sm:gap-x-6">
             <div className="min-w-0 flex-1">
               <p className="reading-title">Make this morning yours in three small steps.</p>
-              <p className="metadata mt-1">Weather and outfit advice already work — keys are optional.</p>
+              <p className="metadata mt-1">Weather and outfit advice already work. Keys are optional.</p>
             </div>
             <button
               type="button"
@@ -712,7 +712,7 @@ export default function App() {
         <div className="mb-6">
           <h1 className="editorial-title">Good morning.</h1>
           <p className="body-copy mt-2 max-w-prose">
-            The weather, the news, and what needs you — in one quiet read.
+            The weather, the news, and what needs you in one quiet read.
           </p>
         </div>
 

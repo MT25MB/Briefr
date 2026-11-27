@@ -101,7 +101,7 @@ export default function WeatherOutfitCard({
                   <span className="metadata tnum">{hour.time}</span>
                   <WeatherIcon kind={hour.icon} className={hour.precip >= 50 ? 'text-[var(--accent)]' : 'text-[var(--faint)]'} />
                   <span className="tnum text-[0.875rem] font-semibold text-[var(--ink)]">{hour.temp}°</span>
-                  <span className="metadata tnum">{hour.precip ? `${hour.precip}%` : '—'}</span>
+                  <span className="metadata tnum">{hour.precip ? `${hour.precip}%` : '·'}</span>
                 </button>
               )
             })}

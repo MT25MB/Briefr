@@ -146,7 +146,7 @@ export default function CalendarSourcesModal({ connections, onChange, onClose })
 
           <Section
             title="Apple or Proton calendar link"
-            note="Use a read-only ICS/iCalendar link. Proton works best this way — there's no public third-party API."
+            note="Use a read-only ICS/iCalendar link. Proton works best this way because there's no public third-party API."
           >
             <div className="grid gap-2 sm:grid-cols-2">
               <select

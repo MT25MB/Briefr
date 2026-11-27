@@ -51,7 +51,7 @@
   --space-8: 2rem;
 }
 
-/* Warm near-black ground, elevated surfaces, and lighter text — not an inversion. */
+/* Warm near-black ground, elevated surfaces, and lighter text, not an inversion. */
 :root[data-theme='dark'] {
   color-scheme: dark;
 

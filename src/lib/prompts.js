@@ -39,7 +39,7 @@ ${dataBlock('schedule', schedule.map((event) => ({
 
 Use the schedule as the backbone of the day's flow. Call out the next key commitment, any tight gap or overlap, and a concrete prep detail (location, travel, or a note) where it matters. Never invent an event, time, or location.
 
-Return STRICT JSON ONLY — no markdown fences, no prose before or after. Use exactly this shape:
+Return STRICT JSON ONLY. No markdown fences, no prose before or after. Use exactly this shape:
 {
   "headline": "short summary of the day's weather arc",
   "precipAlert": "exact timing and likelihood of rain or snow, or a clear 'no rain or snow expected' note if dry",
@@ -77,7 +77,7 @@ export function buildNewsRankingPrompt({
   const lens = normalizePoliticalLens(politicalLens)
   const mode = normalizeCoverageMode(coverageMode)
 
-  return `You are Briefr's news editor. Cluster and deduplicate the RSS items below into a short morning briefing. Stories about the same event appearing in several feeds count as ONE story — keep the clearest source URL.
+  return `You are Briefr's news editor. Cluster and deduplicate the RSS items below into a short morning briefing. Stories about the same event appearing in several feeds count as ONE story, so keep the clearest source URL.
 
 LOCATION: ${location || 'not specified'}
 SELECTED TOPICS: ${topics.join(', ') || 'all'}
@@ -94,7 +94,7 @@ ${dataBlock('rss', items.map((item) => ({
   category: item.category,
 })))}
 
-Return STRICT JSON ONLY — no markdown fences, no prose before or after. Use exactly this shape:
+Return STRICT JSON ONLY. No markdown fences, no prose before or after. Use exactly this shape:
 {
   "local": [
     {
@@ -141,7 +141,7 @@ ${dataBlock('pasted text', text.slice(0, 6000))}
 
 ${dataBlock('schedule', today)}
 
-Return STRICT JSON ONLY — no markdown fences, no prose before or after:
+Return STRICT JSON ONLY. No markdown fences, no prose before or after:
 {
   "needsAction": [
     { "sender": "who wrote it", "summary": "one short sentence on what they need", "suggestedAction": "the concrete next step", "urgency": "explicit due hint, or empty", "scheduleNote": "how it fits today's schedule, or empty" }
@@ -202,7 +202,7 @@ function scheduleHint(text, schedule = []) {
   return `Before ${time} ${first.title}${first.location ? ` · ${first.location}` : ''}`
 }
 
-// Deterministic fallback — no key, no network, no stored text.
+// Deterministic fallback: no key, no network, no stored text.
 export function triageLocally(text = '', schedule = []) {
   const lower = text.toLowerCase()
   const item = {
@@ -222,7 +222,7 @@ export function triageLocally(text = '', schedule = []) {
             ? 'Approve or decline today.'
             : lower.includes('rsvp')
               ? 'Send your RSVP.'
-              : 'Reply today — do not leave this unread.',
+              : 'Reply today. Do not leave this unread.',
           urgency: urgencyFrom(text),
           scheduleNote: scheduleHint(text, schedule),
         },
@@ -242,7 +242,7 @@ function jacketFor(feels) {
   if (feels < 35) return 'heavy insulated coat over a warm sweater'
   if (feels < 48) return 'medium-weight fleece or coat over a long-sleeve layer'
   if (feels < 60) return 'light windbreaker over a T-shirt or light sweater'
-  return 'no jacket — a T-shirt or light long-sleeve is enough'
+  return 'no jacket, a T-shirt or light long-sleeve is enough'
 }
 
 // Deterministic, offline generator used when no key is configured or a call fails.
@@ -257,7 +257,7 @@ export function buildFallbackWardrobe(weather, preferences = {}, schedule = []) 
 
     let outfit = `${jacketFor(feels)}. Feels like ${window.feelsMin}–${window.feelsMax}°F.`
     if (window.precipMax >= 40) {
-      outfit += ' Rain is likely — add a waterproof shell and carry an umbrella.'
+      outfit += ' Rain is likely, so add a waterproof shell and carry an umbrella.'
       tags.add('Waterproof shell')
       tags.add('Umbrella')
     } else if (window.precipMax >= 20) {
@@ -293,7 +293,7 @@ export function buildFallbackWardrobe(weather, preferences = {}, schedule = []) 
   const arc = weather.high - weather.low > 12 ? 'a wide swing' : 'a steady stretch'
   const headline =
     tone === 'Friendly'
-      ? `A ${arc.toLowerCase()} today — highs near ${weather.high}°F. ${wetWindow ? 'Keep something waterproof close by.' : 'A dry one, so layer lightly.'}`
+      ? `A ${arc.toLowerCase()} today. Highs near ${weather.high}°F. ${wetWindow ? 'Keep something waterproof close by.' : 'A dry one, so layer lightly.'}`
       : `Highs near ${weather.high}°F with ${arc}; ${wetWindow ? `wet weather ${wetWindow.label.toLowerCase()}.` : 'dry throughout.'}`
 
   const first = schedule[0]

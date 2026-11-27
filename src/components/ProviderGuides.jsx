@@ -7,7 +7,7 @@ export default function ProviderGuides() {
   return (
     <div>
       <p className="text-[0.875rem] leading-relaxed text-[var(--muted)]">
-        Pick one provider to start. Each has a free tier — no credit card needed. Copy the key it gives
+        Pick one provider to start. Each has a free tier and needs no credit card. Copy the key it gives
         you and paste it into the box below.
       </p>
 

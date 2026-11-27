@@ -113,7 +113,7 @@ export function writeJson(key, value) {
   try {
     localStorage.setItem(scopeKey(key), JSON.stringify(value))
   } catch {
-    // Private browsing or storage full — the app still works in memory.
+    // Private browsing or storage full, but the app still works in memory.
   }
 }
 

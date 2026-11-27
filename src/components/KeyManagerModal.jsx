@@ -261,7 +261,7 @@ export function KeyEditor({ keys, onChange, onPing, onSimulateRateLimit, compact
       )}
 
       {!compact && (
-        <p className="metadata mt-4">Keys rotate automatically after a rate limit. Free tiers have limits — keep sensitive text out of prompts.</p>
+        <p className="metadata mt-4">Keys rotate automatically after a rate limit. Free tiers have limits, so keep sensitive text out of prompts.</p>
       )}
       {notice && <p className="mt-2 text-[0.8125rem] font-medium text-[var(--success)]">{notice}</p>}
     </div>
@@ -478,7 +478,7 @@ export default function KeyManagerModal({
             {showAdvanced && (
               <div className="space-y-3 border-t border-[var(--line-soft)] px-4 py-4">
                 <p className="text-[0.8125rem] leading-relaxed text-[var(--muted)]">
-                  Already using Ollama on your computer? Add it here — no account or key needed.
+                  Already using Ollama on your computer? Add it here. No account or key needed.
                   Everything stays on your machine.
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">

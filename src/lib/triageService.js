@@ -1,5 +1,5 @@
 // Inbox triage: pasted text becomes a strict, daily action list.
-// Pasted text itself is never written to localStorage — only derived items.
+// Pasted text itself is never written to localStorage, only derived items.
 import { readJson, todayKey, writeJson } from './storage.js'
 import { runWithRotation } from './llmRotator.js'
 import { buildTriagePrompt, triageLocally } from './prompts.js'
@@ -127,7 +127,7 @@ export async function triageMessages({
     })
     return saveTriage(normalizeTriageResult(data, { source: 'ai', date }))
   } catch {
-    // 429, invalid key, network error, or malformed JSON — never a dead end.
+    // 429, invalid key, network error, or malformed JSON, never a dead end.
     return saveTriage(fallback())
   }
 }

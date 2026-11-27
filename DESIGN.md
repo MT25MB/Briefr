@@ -6,8 +6,8 @@ Briefr is a morning briefing, not a control panel. The interface should read lik
 
 Two faces, loaded in `index.html`:
 
-- **Fraunces** — display and section headings (`font-display`, `.editorial-title`, `.section-title`, `.modal-title`, `.reading-title`). Tight tracking on large sizes, balanced wrapping.
-- **Source Sans 3** — body copy, controls, and metadata (`font-body`, `.body-copy`, `.metadata`, `.overline`).
+- **Fraunces**: display and section headings (`font-display`, `.editorial-title`, `.section-title`, `.modal-title`, `.reading-title`). Tight tracking on large sizes, balanced wrapping.
+- **Source Sans 3**: body copy, controls, and metadata (`font-body`, `.body-copy`, `.metadata`, `.overline`).
 
 Root font size is `112.5%` (18px). All text sizes are rem-based and scale with the user's browser setting. Temperatures, times and counts use `tnum`.
 
@@ -40,7 +40,7 @@ Theme preference is `system | light | dark`, stored in `localStorage` as `briefr
 
 - Loading, error, empty, and success states use short, plain sentences that say what happened and what to do next.
 - Privacy is stated once in **Privacy & data**. Don't repeat "keys stay here" around every key, calendar, and form field.
-- Button labels name the object: "Add key", "Sort this message", "Connect calendar", "Refresh briefing" — never bare "Done" or "Continue".
+- Button labels name the object: "Add key", "Sort this message", "Connect calendar", "Refresh briefing", never bare "Done" or "Continue".
 - Async status regions use `aria-live="polite"`. Warning toasts also play a short, quiet tone; the sound can be turned off in Keys & settings.
 - Each dashboard card has its own error boundary, so one failed feed or provider cannot blank the morning.
 

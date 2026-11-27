@@ -13,7 +13,7 @@ npm run dev
 
 Open <http://localhost:5173>. To check the production build, run `npm run build` and then `npm run preview`.
 
-On this Windows setup, use `npm.cmd` — PowerShell blocks `npm.ps1`.
+On this Windows setup, use `npm.cmd` because PowerShell blocks `npm.ps1`.
 
 ## What's inside
 
@@ -41,7 +41,7 @@ Open **What's Ahead Today → Connect** to bring today's events into Briefr. Eve
 
 - **Google Calendar:** add your own OAuth client ID and connect. Briefr asks only for read-only calendar access.
 - **Notion:** paste an integration token and a database ID. Briefr finds the Date and Status properties, skips done or archived entries, and shows today's tasks with their times. OAuth is also available if you provide a small token proxy that holds the Notion client secret.
-- **Apple and Proton:** paste a read-only ICS/iCalendar link. Recurring events are expanded into today's local time. Proton works best this way — there's no public third-party API.
+- **Apple and Proton:** paste a read-only ICS/iCalendar link. Recurring events are expanded into today's local time. Proton works best this way because there's no public third-party API.
 - **Apple iCloud via CalDAV:** if you run a CalDAV proxy, add its address and your calendar URL. Briefr asks the proxy for today's events.
 
 If a calendar feed blocks browser requests, add a proxy URL for that feed. Tokens and links stay in this browser's local storage, and Briefr doesn't keep a copy on a server.
@@ -58,7 +58,7 @@ For cross-device syncing, connect a free Supabase project:
 4. Add the same two values as build environment variables in Cloudflare Pages.
 5. Sign up from the top bar. Preferences and non-secret calendar settings follow your account between devices.
 
-Only public preferences sync: tone, location, wardrobe choices, news lens, feed URLs and database IDs. BYOK API keys and calendar tokens stay in browser localStorage. Never put a service-role key or raw token in a `VITE_*` variable — client bundles are public.
+Only public preferences sync: tone, location, wardrobe choices, news lens, feed URLs and database IDs. BYOK API keys and calendar tokens stay in browser localStorage. Never put a service-role key or raw token in a `VITE_*` variable; client bundles are public.
 
 In **Keys & settings → Privacy & data**, you can see every connection, disconnect a calendar one by one, clear the cached digest, export your data, delete your data, or wipe local storage. Calendar titles are never written to a server log.
 
@@ -95,7 +95,7 @@ Both `VITE_*` values are bundled into browser JavaScript, so they must be publis
 ### Setup checklist
 
 - [ ] `npm install` then `npm run dev`; open `http://localhost:5173`.
-- [ ] `npm run build`; confirm `dist/index.html`, `dist/favicon.svg`, `dist/_headers` and hashed assets exist. `functions/api/rss.js` and `functions/api/ics.js` stay at the repo root — Cloudflare adds them at deploy time.
+- [ ] `npm run build`; confirm `dist/index.html`, `dist/favicon.svg`, `dist/_headers` and hashed assets exist. `functions/api/rss.js` and `functions/api/ics.js` stay at the repo root; Cloudflare adds them at deploy time.
 - [ ] Optional: create a Supabase project, run `supabase/migrations/001_init.sql`, and set the two public variables from `.env.example`. Sign-up, password/magic-link/OAuth sign-in, session refresh, and password reset are real Supabase calls; without env vars Briefr uses a full local-only guest account.
 - [ ] Deploy with `npx wrangler pages deploy dist --project-name=briefr` or connect the repo in the Cloudflare dashboard.
 - [ ] Test locally: choose local-only mode, then check Weather, News, Calendar and Inbox cards. In **Keys & settings**, use **Simulate a rate limit** to confirm a provider failure leaves the rest of the page intact.
@@ -131,7 +131,7 @@ The morning run is coordinated by `runMorningDigest()`, which syncs calendars, f
 
 Political curation uses canonical tokens: `politicalLens` is `neutral | conservative | liberal | libertarian | independent | unfiltered` and `coverageMode` is `aligned | balanced`. Old display-label values migrate automatically on load. Balanced mode adds broader-debate feeds and asks the LLM for multiple viewpoints grounded only in the supplied RSS items; aligned mode prioritizes stories relevant to the chosen lens without changing facts or attribution. The news lens badge switches between the chosen lens and Neutral in one click. Run `npm run verify:politics` to check tokens, migration, prompt rules, and perspective feeds.
 
-Google (paginated REST with read-only OAuth), Notion (paginated database query with date-range matching and tags), Apple/Proton ICS, and CalDAV all normalize to `{ id, title, startTime, endTime, isAllDay, location, source, status, notes }`. The ICS parser unfolds lines, honors `TZID`/UTC, `EXDATE`, and daily/weekly/monthly `RRULE`, and the `/api/ics` edge function enforces HTTPS-only, blocks private/loopback/link-local hosts, times out, and returns `Cache-Control: no-store`. In local dev the browser falls back to a validated direct fetch. Timed events sort chronologically, all-day items sit above the timeline, and Under 20-minute gaps are flagged as tight transitions. No mock schedule is used in production paths — use **Add a quick event** for an instant local item. Run `npm run verify:calendars` to check SSRF rules, edge caching, pagination, adapters, and recurrence.
+Google (paginated REST with read-only OAuth), Notion (paginated database query with date-range matching and tags), Apple/Proton ICS, and CalDAV all normalize to `{ id, title, startTime, endTime, isAllDay, location, source, status, notes }`. The ICS parser unfolds lines, honors `TZID`/UTC, `EXDATE`, and daily/weekly/monthly `RRULE`, and the `/api/ics` edge function enforces HTTPS-only, blocks private/loopback/link-local hosts, times out, and returns `Cache-Control: no-store`. In local dev the browser falls back to a validated direct fetch. Timed events sort chronologically, all-day items sit above the timeline, and Under 20-minute gaps are flagged as tight transitions. No mock schedule is used in production paths. Use **Add a quick event** for an instant local item. Run `npm run verify:calendars` to check SSRF rules, edge caching, pagination, adapters, and recurrence.
 
 Every calendar source is normalized to `{ id, title, startTime, endTime, isAllDay, location, source, status, notes }`. Quick one-off events for today are stored only in this browser and travel through the same pipeline. Triage results are also day-scoped: only derived items are saved, never the pasted text itself, and a new day resets both. Triage cross-references today's schedule when available, so an urgent item before an early meeting gets a prep note in the Inbox and a timing flag in the Morning Checklist. Run `npm run verify:schedule` and `npm run verify:triage` to check recurrence, friction flags, prompt wiring, fallback sorting, and daily state.
 

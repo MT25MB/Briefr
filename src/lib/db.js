@@ -66,7 +66,7 @@ export function publicCalendarConfig(calendars = {}) {
       redirectUri: calendars.notion?.redirectUri ?? '',
       proxyUrl: calendars.notion?.proxyUrl ?? '',
     },
-    // Private ICS/CalDAV URLs are bearer capabilities — they stay on this device.
+    // Private ICS/CalDAV URLs are bearer capabilities and stay on this device.
     ics: (calendars.ics ?? []).map((feed) => ({
       id: feed.id,
       source: feed.source,

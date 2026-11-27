@@ -50,7 +50,7 @@ async function loadNews(prefs) {
     })
     return { items: result.items, errors: result.errors, sourceCount: result.sourceCount, offline: false }
   } catch {
-    // Kept for the raw/offline UI only — never sent to the LLM as real news.
+    // Kept for the raw/offline UI only, never sent to the LLM as real news.
     return { items: MOCK_NEWS_ITEMS, errors: ['Using offline preview'], sourceCount: 0, offline: true }
   }
 }
@@ -122,7 +122,7 @@ export async function runMorningDigest({
         source: 'fallback',
         loading: false,
         ...(outfitRun?.meta ?? {}),
-        rotationNote: outfitRun?.meta?.rotationNote ?? 'Every key was busy — using built-in advice.',
+        rotationNote: outfitRun?.meta?.rotationNote ?? 'Every key was busy, so I used built-in advice.',
       }
     }
     const storedKeys = loadKeys()

@@ -133,7 +133,7 @@ export default function OnboardingWizard({
             <div>
               <h3 className="section-title">Connect a free AI helper</h3>
               <p className="body-copy mt-2">
-                Keys are optional — weather and outfit advice work without one. Add a few so the briefing
+                Keys are optional. Weather and outfit advice work without one. Add a few so the briefing
                 keeps going when a provider hits its limit.
               </p>
 
@@ -176,7 +176,7 @@ export default function OnboardingWizard({
 
               <div className="mt-5 border-t border-[var(--line)] pt-5">
                 <p className="text-[0.875rem] font-semibold text-[var(--ink)]">How do you feel the cold?</p>
-                <p className="mt-0.5 text-[0.8125rem] text-[var(--faint)]">No judgment — this tunes the outfit advice.</p>
+                <p className="mt-0.5 text-[0.8125rem] text-[var(--faint)]">No judgment. This tunes the outfit advice.</p>
                 <Segmented
                   options={SENSITIVITIES}
                   value={settings.sensitivity}
@@ -253,7 +253,7 @@ export default function OnboardingWizard({
               <div className="mt-5 border-t border-[var(--line)] pt-5">
                 <p className="reading-title">Political lens (optional)</p>
                 <p className="metadata mt-1">
-                  Choose a general leaning if you want news framed for it. This only changes news selection and framing — weather, calendar, and factual claims never change. Skip this and keep a neutral briefing.
+                  Choose a general leaning if you want news framed for it. This only changes news selection and framing. Weather, calendar, and factual claims never change. Skip this and keep a neutral briefing.
                 </p>
                 <label htmlFor="political-lens" className="sr-only">Political news lens</label>
                 <select
