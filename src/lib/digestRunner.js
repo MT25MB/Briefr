@@ -149,6 +149,7 @@ export async function runMorningDigest({
             feeds: prefs.feeds,
             politicalLens: prefs.politicalLens,
             coverageMode: prefs.coverageMode,
+            storyKey: feed.items.map((item) => `${item.link ?? ''}:${item.pubDate ?? ''}`).join('|'),
             date,
           }),
         })

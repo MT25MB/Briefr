@@ -76,7 +76,9 @@ export function splitMessages(raw = '') {
       current.some((entry) => /^subject\s*:/i.test(entry.trim()))
     const startsChat =
       /^\[?\d{1,2}:\d{2}\s?(?:am|pm)\]?\s+[^:]{1,40}:/i.test(trimmed) ||
-      /^[^:\n]{1,40}\s+\d{1,2}:\d{2}\s?(?:am|pm)\s*:?/i.test(trimmed)
+      // Chat headers have a name and a double space before the time. A normal
+      // sentence like "Please call at 10:30 AM" must stay one message.
+      /^[A-Za-z][A-Za-z0-9 .'-]{0,39}\s{2,}\d{1,2}:\d{2}\s?(?:am|pm)\s*:?/i.test(trimmed)
     const separator = /^\s*(?:[-*_]\s*){3,}\s*$/.test(trimmed)
 
     if (separator || startsForwarded || startsQuotedReply || startsSecondSubject || startsChat) {

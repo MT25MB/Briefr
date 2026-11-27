@@ -50,7 +50,12 @@ export const CALENDAR_SOURCE_GUIDES = [
 function safeUrl(url) {
   try {
     const parsed = new URL(url)
-    return ['http:', 'https:'].includes(parsed.protocol) ? parsed : null
+    const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    const loopback = ['localhost', '127.0.0.1', '::1'].includes(host)
+    // Proxies receive calendar tokens and private feed links, so remote
+    // cleartext endpoints are never allowed. Local dev over http is fine.
+    if (parsed.protocol === 'https:' || (parsed.protocol === 'http:' && loopback)) return parsed
+    return null
   } catch {
     return null
   }
@@ -469,7 +474,7 @@ export function fetchIcsEvents(args = {}) {
 
 async function readCaldavEvents({ proxyUrl, calendarUrl, date = todayKey(), source = 'Apple' }) {
   if (!proxyUrl || !calendarUrl) return []
-  if (!safeUrl(proxyUrl)) throw new Error('Add a valid CalDAV proxy address.')
+  if (!safeUrl(proxyUrl)) throw new Error('Add an HTTPS CalDAV proxy address. Local http is allowed for development.')
   const response = await fetch(proxyUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

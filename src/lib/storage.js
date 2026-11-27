@@ -295,10 +295,11 @@ export function newsCacheKey({
   feeds = [],
   politicalLens = '',
   coverageMode = '',
+  storyKey = '',
   date = todayKey(),
 } = {}) {
   return `${date}:news:${hash(
-    [location, tone, topics.join(','), feeds.join(','), politicalLens, coverageMode].join('|'),
+    [location, tone, topics.join(','), feeds.join(','), politicalLens, coverageMode, storyKey].join('|'),
   )}`
 }
 
