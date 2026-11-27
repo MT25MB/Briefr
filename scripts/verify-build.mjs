@@ -1,5 +1,13 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { join, relative, resolve } from 'node:path'
+
+function filesIn(dir) {
+  if (!existsSync(dir)) return []
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name)
+    return statSync(path).isDirectory() ? filesIn(path) : [path]
+  })
+}
 
 const root = process.cwd()
 const required = [
@@ -25,8 +33,25 @@ forbidden.forEach((file) => {
 })
 if (!html.includes('/favicon.svg')) problems.push('index.html does not reference the favicon')
 
+const distFiles = filesIn(resolve(root, 'dist')).map((file) => file.replaceAll('\\', '/'))
+const unexpectedDist = distFiles.filter((file) => /\.(ts|tsx|map)$/.test(file) || file.includes('vite.config'))
+if (unexpectedDist.length) problems.push(`Unexpected build artifacts: ${unexpectedDist.join(', ')}`)
+const assets = distFiles.filter((file) => file.includes('/assets/'))
+if (!assets.some((file) => file.endsWith('.js'))) problems.push('dist has no hashed JavaScript asset')
+if (!assets.some((file) => file.endsWith('.css'))) problems.push('dist has no hashed CSS asset')
+
+const functionFiles = filesIn(resolve(root, 'functions/api'))
+  .map((file) => relative(root, file).replaceAll('\\', '/'))
+  .filter((file) => file.endsWith('.js'))
+  .sort()
+if (functionFiles.join(',') !== 'functions/api/ics.js,functions/api/rss.js') {
+  problems.push(`Unexpected Pages Functions: ${functionFiles.join(', ')}`)
+}
+
 if (problems.length) {
   console.error('Build verification failed:\n' + problems.join('\n'))
   process.exit(1)
 }
-console.log('Build verified: dist is clean and Cloudflare Functions are at the repo root.')
+console.log(
+  `Build verified: ${distFiles.length} dist files, ${assets.length} hashed assets, and 2 Cloudflare Functions at the repo root.`,
+)

@@ -49,9 +49,16 @@ for (const { path, text } of allCode) {
   assert.doesNotMatch(text, /VITE_/, `${path} must not reference VITE_* values`)
 }
 const env = read('.env.example')
-assert.match(env, /VITE_SUPABASE_URL=/)
-assert.match(env, /VITE_SUPABASE_ANON_KEY=/)
-assert.doesNotMatch(env, /SERVICE_ROLE|API_KEY|TOKEN/i)
+const envAssignments = env
+  .split(/\r?\n/)
+  .filter((line) => /^\s*[A-Za-z_][A-Za-z0-9_]*\s*=/.test(line))
+  .join('\n')
+assert.match(envAssignments, /VITE_SUPABASE_URL=/)
+assert.match(envAssignments, /VITE_SUPABASE_ANON_KEY=/)
+assert.doesNotMatch(envAssignments, /SERVICE_ROLE|API_KEY|TOKEN|SECRET/i)
+assert.match(env, /localStorage/)
+assert.match(env, /\/api\/rss/)
+assert.match(env, /\/api\/ics/)
 
 for (const { path, text } of allCode) {
   const blankLinks = (text.match(/target="_blank"/g) ?? []).length
