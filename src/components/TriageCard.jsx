@@ -145,7 +145,16 @@ export default function TriageCard({ id, triage, loading = false, onTriage, onCo
                 key={key}
                 type="button"
                 role="tab"
+                id={`triage-tab-${key}`}
+                aria-controls="triage-panel"
                 onClick={() => setTab(key)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+                  const index = TABS.findIndex((entry) => entry.key === tab)
+                  const next = (index + (event.key === 'ArrowRight' ? 1 : -1) + TABS.length) % TABS.length
+                  setTab(TABS[next].key)
+                  event.currentTarget.parentElement?.querySelectorAll('[role="tab"]')?.[next]?.focus()
+                }}
                 aria-selected={active}
                 className={`-mb-px inline-flex min-h-12 items-center gap-2 border-b-2 text-[0.875rem] font-semibold ${
                   active ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-transparent text-[var(--faint)] hover:text-[var(--ink)]'
@@ -162,6 +171,7 @@ export default function TriageCard({ id, triage, loading = false, onTriage, onCo
           {loading ? 'Sorting your message' : `${visible.length} items in this group`}
         </p>
 
+        <div id="triage-panel" role="tabpanel" aria-labelledby={`triage-tab-${tab}`} tabIndex={0}>
         {tab === 'noiseItems' ? (
           <div className="mt-3">
             <button
@@ -202,6 +212,7 @@ export default function TriageCard({ id, triage, loading = false, onTriage, onCo
             {hasResult ? 'Nothing in this group.' : 'Paste a message above to sort your inbox.'}
           </p>
         )}
+        </div>
       </div>
     </Card>
   )

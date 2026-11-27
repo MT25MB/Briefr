@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { Card, CardHeader, Segmented } from './ui.jsx'
 import { COVERAGE_MODE_LABELS, POLITICAL_LENS_LABELS } from '../lib/storage.js'
+import { safeHref } from '../lib/rssService.js'
 
 const FILTERS = ['All', 'Local', 'Important']
 const VIEWS = ['Quick read', 'Every headline']
@@ -46,9 +47,9 @@ function Story({ story }) {
           {story.whyItMatters}
         </p>
       )}
-      {story.url && (
+      {safeHref(story.url) && (
         <a
-          href={story.url}
+          href={safeHref(story.url)}
           target="_blank"
           rel="noreferrer"
           className="mt-3 inline-flex min-h-12 items-center gap-1 text-[0.875rem] font-semibold text-[var(--accent)] hover:underline"
@@ -65,7 +66,7 @@ function RawList({ items }) {
     <ul>
       {items.map((item, index) => (
         <li key={`${item.link}-${index}`}>
-          <a href={item.link} target="_blank" rel="noreferrer" className="group block min-h-16 py-4">
+          <a href={safeHref(item.link) || '#'} target="_blank" rel="noreferrer" className="group block min-h-16 py-4">
             <span className="block text-[0.9375rem] font-medium leading-snug text-[var(--ink)] group-hover:text-[var(--accent)]">
               {item.title}
             </span>
@@ -137,25 +138,29 @@ export default function NewsFeedCard({
       </div>
 
       <div className="flex gap-6 px-6">
-        {FILTERS.map((item) => {
-          const active = filter === item
+        {FILTERS.map((tab) => {
+          const active = filter === tab
           const count =
-            item === 'All'
+            tab === 'All'
               ? hasAi ? local.length + important.length : items.length
               : hasAi
-                ? (item === 'Local' ? local.length : important.length)
-                : rawForFilter.length
+                ? (tab === 'Local' ? local.length : important.length)
+                : items.filter((entry) =>
+                    tab === 'Local'
+                      ? entry.category === 'Local News'
+                      : entry.category !== 'Local News',
+                  ).length
           return (
             <button
-              key={item}
+              key={tab}
               type="button"
-              onClick={() => setFilter(item)}
+              onClick={() => setFilter(tab)}
               aria-pressed={active}
               className={`inline-flex min-h-12 items-center gap-2 border-b-2 text-[0.875rem] font-semibold ${
                 active ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-transparent text-[var(--faint)] hover:text-[var(--ink)]'
               }`}
             >
-              {item}
+              {tab}
               <span className="metadata tnum">{count}</span>
             </button>
           )

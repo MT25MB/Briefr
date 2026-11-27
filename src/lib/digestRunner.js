@@ -33,9 +33,9 @@ async function loadWeather(location) {
     const places = await geocodeLocation(location || digest.location)
     if (!places.length) throw new Error('No matching location found')
     const forecast = await fetchHourlyWeather(places[0].lat, places[0].lon)
-    return { weather: normalizeForecast(forecast, places[0]), source: 'live', error: null }
+    return { weather: normalizeForecast(forecast, places[0]), source: 'live', error: null, offline: false }
   } catch (error) {
-    return { weather: mockWeather, source: 'mock', error: error.message }
+    return { weather: mockWeather, source: 'mock', error: error.message, offline: true }
   }
 }
 
@@ -48,9 +48,10 @@ async function loadNews(prefs) {
       politicalLens: prefs.politicalLens,
       coverageMode: prefs.coverageMode,
     })
-    return { items: result.items, errors: result.errors, sourceCount: result.sourceCount }
+    return { items: result.items, errors: result.errors, sourceCount: result.sourceCount, offline: false }
   } catch {
-    return { items: MOCK_NEWS_ITEMS, errors: ['Using offline preview'], sourceCount: 0 }
+    // Kept for the raw/offline UI only — never sent to the LLM as real news.
+    return { items: MOCK_NEWS_ITEMS, errors: ['Using offline preview'], sourceCount: 0, offline: true }
   }
 }
 
@@ -89,7 +90,7 @@ export async function runMorningDigest({
   let newsRankMeta = null
   let activeKeys = keys
 
-  if (activeKeys.length) {
+  if (activeKeys.length && !forecast.offline) {
     let outfitRun = null
     try {
       outfitRun = await runWithRotation({
@@ -106,6 +107,9 @@ export async function runMorningDigest({
           tone: prefs.tone,
           sensitivity: prefs.sensitivity,
           commute: prefs.commute,
+          weatherKey: JSON.stringify(summarizeWeather(forecast.weather)),
+          scheduleKey: schedule.map((event) => `${event.id}:${event.startTime}`).join(','),
+          date,
         }),
       })
       if (validWardrobe(outfitRun.data)) {
@@ -124,7 +128,7 @@ export async function runMorningDigest({
     const storedKeys = loadKeys()
     activeKeys = storedKeys.length ? storedKeys : activeKeys
 
-    if (feed.items.length) {
+    if (feed.items.length && !feed.offline) {
       try {
         const newsRun = await runWithRotation({
           keys: activeKeys,
@@ -145,6 +149,7 @@ export async function runMorningDigest({
             feeds: prefs.feeds,
             politicalLens: prefs.politicalLens,
             coverageMode: prefs.coverageMode,
+            date,
           }),
         })
         if (validNews(newsRun.data)) {
@@ -160,7 +165,11 @@ export async function runMorningDigest({
 
   return {
     schedule,
-    calendarMeta: { loading: false, connected, errors: calendar.errors ?? [] },
+    calendarMeta: {
+      loading: false,
+      connected: connected && (calendar.errors ?? []).length === 0,
+      errors: calendar.errors ?? [],
+    },
     weather: forecast.weather,
     weatherMeta: { source: forecast.source, error: forecast.error, loading: false },
     wardrobe,

@@ -31,6 +31,50 @@ export function validateIcsUrl(raw) {
   return parsed
 }
 
+// Re-validate every redirect hop; a public link must not reach a private host.
+async function fetchIcsSafely(target, options, maxHops = 3) {
+  let current = target
+  for (let hop = 0; hop <= maxHops; hop += 1) {
+    const response = await fetch(current, { ...options, redirect: 'manual' })
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers?.get?.('location')
+      if (!location || hop === maxHops) {
+        throw Object.assign(new Error('Too many redirects'), { status: 400 })
+      }
+      current = validateIcsUrl(new URL(location, current).href)
+      continue
+    }
+    return response
+  }
+  throw Object.assign(new Error('Too many redirects'), { status: 400 })
+}
+
+async function readCappedText(response, maxBytes) {
+  const declared = Number(response.headers?.get?.('content-length') ?? 0)
+  if (declared > maxBytes) return null
+  if (!response.body?.getReader) {
+    const text = await response.text()
+    return text.length <= maxBytes ? text : null
+  }
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let total = 0
+  let text = ''
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > maxBytes) return null
+      text += decoder.decode(value, { stream: true })
+    }
+    text += decoder.decode()
+  } finally {
+    reader.releaseLock?.()
+  }
+  return text.length <= maxBytes ? text : null
+}
+
 function partsInZone(date, timeZone) {
   try {
     const parts = new Intl.DateTimeFormat('en-US', {
@@ -227,7 +271,7 @@ export async function fetchIcsFeed({ url, date, source = 'Calendar', timeZone = 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 8000)
   try {
-    const response = await fetch(target, {
+    const response = await fetchIcsSafely(target, {
       signal: controller.signal,
       headers: {
         'User-Agent': 'Briefr/1.0 (+https://briefr.app) Calendar reader',
@@ -237,12 +281,12 @@ export async function fetchIcsFeed({ url, date, source = 'Calendar', timeZone = 
     if (!response.ok) {
       return { status: 502, body: { error: `Calendar link could not be read (${response.status})`, items: [] } }
     }
-    const text = await response.text()
-    if (text.length > MAX_TEXT) return { status: 413, body: { error: 'Calendar feed too large', items: [] } }
+    const text = await readCappedText(response, MAX_TEXT)
+    if (text === null) return { status: 413, body: { error: 'Calendar feed too large', items: [] } }
     return { status: 200, body: { items: parseIcsFeed(text, { source, date, timeZone }) } }
   } catch (error) {
-    const message = error.name === 'AbortError' ? 'Calendar link timed out' : 'Calendar link could not be read'
-    return { status: 502, body: { error: message, items: [] } }
+    const message = error.name === 'AbortError' ? 'Calendar link timed out' : error.message ?? 'Calendar link could not be read'
+    return { status: error.status ?? 502, body: { error: message, items: [] } }
   } finally {
     clearTimeout(timeout)
   }

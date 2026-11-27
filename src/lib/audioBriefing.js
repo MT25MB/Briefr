@@ -37,12 +37,12 @@ export function buildBriefingScript({
 
   return [
     `Good morning. Here is your Briefr briefing for ${dateLabel}.`,
-    `Weather. ${weather.current.temp} degrees in ${weather.locationLabel}, feeling like ${weather.current.feelsLike}. ${weather.current.condition}. ${wardrobe.precipAlert}`,
+    `Weather. ${weather.current.temp} degrees in ${weather.locationLabel}, feeling like ${weather.current.feelsLike}. ${weather.current.condition}. ${wardrobe?.precipAlert ?? ''}`,
     `What to wear. ${outfit}`,
     local.length ? `Local news. ${spokenStories(local)}` : '',
     important.length ? `Important stories. ${spokenStories(important)}` : '',
     actions.length
-      ? `Action items. ${actions.map((item) => `${item.sender}: ${item.subject}`).join(' ')}`
+      ? `Action items. ${actions.map((item) => `${item.sender}: ${item.suggestedAction || item.summary || 'needs your attention'}`).join(' ')}`
       : 'Action items. Nothing needs your reply right now.',
     events.length ? `On your calendar. ${events.join(' ')}` : '',
     "That's your briefing. Have a good day.",

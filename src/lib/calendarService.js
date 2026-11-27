@@ -92,31 +92,37 @@ export async function completeGoogleOAuth() {
   const params = new URLSearchParams(window.location.search)
   const code = params.get('code')
   if (!code) return null
-  const expected = localStorage.getItem(OAUTH_STATE_KEY)
-  if (expected && params.get('state') !== expected) throw new Error('Google sign-in did not match. Try again.')
-  const verifier = localStorage.getItem(PKCE_KEY)
-  const clientId = loadCalendars().google.clientId
-  const redirectUri = window.location.origin + window.location.pathname
-  const response = await fetch(GOOGLE_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      code,
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      grant_type: 'authorization_code',
-      ...(verifier ? { code_verifier: verifier } : {}),
-    }),
-  })
-  if (!response.ok) throw new Error(`Google sign-in failed (${response.status})`)
-  const data = await response.json()
-  const calendars = loadCalendars()
-  calendars.google.token = data.access_token
-  saveCalendars(calendars)
-  localStorage.removeItem(OAUTH_STATE_KEY)
-  localStorage.removeItem(PKCE_KEY)
-  window.history.replaceState({}, document.title, window.location.pathname)
-  return data.access_token
+  try {
+    const expected = localStorage.getItem(OAUTH_STATE_KEY)
+    const verifier = localStorage.getItem(PKCE_KEY)
+    if (!expected || params.get('state') !== expected) {
+      throw new Error('Google sign-in did not match. Try again.')
+    }
+    if (!verifier) throw new Error('Google sign-in expired. Try again.')
+    const clientId = loadCalendars().google.clientId
+    const redirectUri = window.location.origin + window.location.pathname
+    const response = await fetch(GOOGLE_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+        code_verifier: verifier,
+      }),
+    })
+    if (!response.ok) throw new Error(`Google sign-in failed (${response.status})`)
+    const data = await response.json()
+    const calendars = loadCalendars()
+    calendars.google.token = data.access_token
+    saveCalendars(calendars)
+    window.history.replaceState({}, document.title, window.location.pathname)
+    return data.access_token
+  } finally {
+    localStorage.removeItem(OAUTH_STATE_KEY)
+    localStorage.removeItem(PKCE_KEY)
+  }
 }
 
 export async function startGoogleOAuthPkce({ clientId, redirectUri = window.location.origin + window.location.pathname }) {
@@ -201,21 +207,30 @@ export function startNotionOAuth({ clientId, redirectUri }) {
 }
 
 export async function completeNotionOAuth({ proxyUrl }) {
-  const code = new URLSearchParams(window.location.search).get('code')
+  const params = new URLSearchParams(window.location.search)
+  const code = params.get('code')
   if (!code) return null
-  if (!safeUrl(proxyUrl)) throw new Error('Notion OAuth needs a trusted proxy URL.')
-  const response = await fetch(proxyUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ provider: 'notion', code, redirectUri: window.location.origin + window.location.pathname }),
-  })
-  if (!response.ok) throw new Error(`Notion sign-in failed (${response.status})`)
-  const data = await response.json()
-  const calendars = loadCalendars()
-  calendars.notion.token = data.access_token
-  saveCalendars(calendars)
-  window.history.replaceState({}, document.title, window.location.pathname)
-  return data.access_token
+  try {
+    const expected = localStorage.getItem(OAUTH_STATE_KEY)
+    if (!expected || params.get('state') !== expected) {
+      throw new Error('Notion sign-in did not match. Try again.')
+    }
+    if (!safeUrl(proxyUrl)) throw new Error('Notion OAuth needs a trusted proxy URL.')
+    const response = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: 'notion', code, redirectUri: window.location.origin + window.location.pathname }),
+    })
+    if (!response.ok) throw new Error(`Notion sign-in failed (${response.status})`)
+    const data = await response.json()
+    const calendars = loadCalendars()
+    calendars.notion.token = data.access_token
+    saveCalendars(calendars)
+    window.history.replaceState({}, document.title, window.location.pathname)
+    return data.access_token
+  } finally {
+    localStorage.removeItem(OAUTH_STATE_KEY)
+  }
 }
 
 function notionText(property) {

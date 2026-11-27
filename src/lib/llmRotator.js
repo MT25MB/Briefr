@@ -1,5 +1,5 @@
 // Client-side multi-key rotation with cooldown, daily caps and same-day caching.
-import { getCachedDigest, saveKeys, setCachedDigest, todayKey } from './storage.js'
+import { getCachedDigest, loadKeys, saveKeys, setCachedDigest, todayKey } from './storage.js'
 import { parseJsonResponse, requestText } from './llmClient.js'
 
 export const PROVIDER_CONFIG = {
@@ -124,8 +124,23 @@ export async function runWithRotation({
     rotationNote = text
   }
   const persist = () => {
-    saveKeys(workingKeys)
-    onKeysChange?.(workingKeys.map((key) => ({ ...key })))
+    // Merge only status fields by key id: overlapping runs must not overwrite
+    // each other's cooldown state from a stale snapshot.
+    const stored = loadKeys()
+    const merged = stored.map((key) => {
+      const changed = workingKeys.find((item) => item.id === key.id)
+      return changed
+        ? {
+            ...key,
+            cooldownUntil: changed.cooldownUntil,
+            dailyExhausted: changed.dailyExhausted,
+            lastError: changed.lastError,
+          }
+        : key
+    })
+    for (const key of workingKeys) if (!merged.some((item) => item.id === key.id)) merged.push(key)
+    saveKeys(merged)
+    onKeysChange?.(merged.map((key) => ({ ...key })))
   }
 
   const finish = (text, key, model) => {
@@ -216,10 +231,14 @@ export async function runWithRotation({
 
       if ([502, 503, 504].includes(response.status)) {
         await sleep(700)
+        // The first request's abort timer is already cleared; the retry needs
+        // its own deadline or a stalled provider can hang the whole run.
+        const retryController = new AbortController()
+        const retryTimeout = window.setTimeout(() => retryController.abort(), 12_000)
         try {
           const retry = await requestText(
             { ...key, baseUrl },
-            { prompt, systemPrompt, model, signal: controller.signal },
+            { prompt, systemPrompt, model, signal: retryController.signal },
           )
           if (retry.status >= 200 && retry.status < 300) {
             const success = finish(retry.text, key, model)
@@ -229,6 +248,8 @@ export async function runWithRotation({
           response = retry
         } catch {
           // fall through to rotation
+        } finally {
+          window.clearTimeout(retryTimeout)
         }
       }
 

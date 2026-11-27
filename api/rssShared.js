@@ -4,7 +4,8 @@ const USER_AGENT = 'Briefr/1.0 (+https://briefr.app) RSS reader'
 const MAX_XML_BYTES = 2_000_000
 const MAX_ITEMS = 30
 
-export const EDGE_CACHE = 'public, max-age=900, s-maxage=1800, stale-while-revalidate=3600'
+// Feed responses can reflect validated-but-hostile content; never cache publicly.
+export const EDGE_CACHE = 'no-store'
 
 export function validateFeedUrl(raw) {
   if (!raw) throw Object.assign(new Error('Missing url parameter'), { status: 400 })
@@ -17,19 +18,71 @@ export function validateFeedUrl(raw) {
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw Object.assign(new Error('Only http/https URLs are allowed'), { status: 400 })
   }
-  const host = parsed.hostname.toLowerCase()
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
   const blocked =
     host === 'localhost' ||
     host === '0.0.0.0' ||
     host === '::1' ||
-    host.startsWith('[') ||
     host.endsWith('.localhost') ||
     /^127\./.test(host) ||
     /^10\./.test(host) ||
     /^192\.168\./.test(host) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+    /^169\.254\./.test(host) ||
+    /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+    // Literal numeric aliases: 2130706433 = 127.0.0.1, 0x7f000001, 0177.0.0.1.
+    /^[0-9]+$/.test(host) ||
+    /^0[xX][0-9a-fA-F]+$/.test(host) ||
+    // Any IPv6 literal is rejected (Workers cannot resolve/verify it here).
+    host.includes(':')
   if (blocked) throw Object.assign(new Error('Private addresses are not allowed'), { status: 400 })
   return parsed
+}
+
+// fetch() follows redirects by default; re-validate every hop so a public URL
+// cannot 302 into loopback or cloud metadata.
+async function fetchSafely(target, options, maxHops = 3) {
+  let current = target
+  for (let hop = 0; hop <= maxHops; hop += 1) {
+    const response = await fetch(current, { ...options, redirect: 'manual' })
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers?.get?.('location')
+      if (!location || hop === maxHops) {
+        throw Object.assign(new Error('Too many redirects'), { status: 400 })
+      }
+      current = validateFeedUrl(new URL(location, current).href)
+      continue
+    }
+    return response
+  }
+  throw Object.assign(new Error('Too many redirects'), { status: 400 })
+}
+
+// Cap the body while streaming so a huge response cannot exhaust memory.
+async function readCappedText(response, maxBytes) {
+  const declared = Number(response.headers?.get?.('content-length') ?? 0)
+  if (declared > maxBytes) return null
+  if (!response.body?.getReader) {
+    const text = await response.text()
+    return text.length <= maxBytes ? text : null
+  }
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let total = 0
+  let text = ''
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > maxBytes) return null
+      text += decoder.decode(value, { stream: true })
+    }
+    text += decoder.decode()
+  } finally {
+    reader.releaseLock?.()
+  }
+  return text.length <= maxBytes ? text : null
 }
 
 function decodeEntities(value) {
@@ -86,7 +139,7 @@ export async function fetchFeed(rawUrl) {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 8000)
   try {
-    const response = await fetch(parsed, {
+    const response = await fetchSafely(parsed, {
       signal: controller.signal,
       headers: {
         'User-Agent': USER_AGENT,
@@ -96,14 +149,14 @@ export async function fetchFeed(rawUrl) {
     if (!response.ok) {
       return { status: 502, body: { error: `Feed request failed (${response.status})`, items: [] } }
     }
-    const xml = await response.text()
-    if (xml.length > MAX_XML_BYTES) {
+    const xml = await readCappedText(response, MAX_XML_BYTES)
+    if (xml === null) {
       return { status: 413, body: { error: 'Feed too large', items: [] } }
     }
     return { status: 200, body: { items: parseFeed(xml).filter((item) => item.title && item.link) } }
   } catch (error) {
-    const message = error.name === 'AbortError' ? 'Feed timed out' : 'Could not fetch feed'
-    return { status: 502, body: { error: message, items: [] } }
+    const message = error.name === 'AbortError' ? 'Feed timed out' : error.message ?? 'Could not fetch feed'
+    return { status: error.status ?? 502, body: { error: message, items: [] } }
   } finally {
     clearTimeout(timeout)
   }

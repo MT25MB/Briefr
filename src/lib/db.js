@@ -66,15 +66,12 @@ export function publicCalendarConfig(calendars = {}) {
       redirectUri: calendars.notion?.redirectUri ?? '',
       proxyUrl: calendars.notion?.proxyUrl ?? '',
     },
+    // Private ICS/CalDAV URLs are bearer capabilities — they stay on this device.
     ics: (calendars.ics ?? []).map((feed) => ({
       id: feed.id,
       source: feed.source,
-      url: feed.url,
     })),
-    caldav: {
-      proxyUrl: calendars.caldav?.proxyUrl ?? '',
-      calendarUrl: calendars.caldav?.calendarUrl ?? '',
-    },
+    caldav: {},
   }
 }
 
@@ -101,22 +98,7 @@ function calendarRows(userId, calendars = {}) {
       database_id: clean.notion.databaseId,
     })
   }
-  clean.ics.forEach((feed) => {
-    if (!feed.url) return
-    rows.push({
-      user_id: userId,
-      provider: feed.source === 'Proton' ? 'proton' : 'apple',
-      config: { id: feed.id, source: feed.source },
-      feed_url: feed.url,
-    })
-  })
-  if (clean.caldav.proxyUrl || clean.caldav.calendarUrl) {
-    rows.push({
-      user_id: userId,
-      provider: 'caldav',
-      config: { proxyUrl: clean.caldav.proxyUrl, calendarUrl: clean.caldav.calendarUrl },
-    })
-  }
+  // No ICS/CalDAV rows: their URLs are secrets and never leave this browser.
   return rows
 }
 

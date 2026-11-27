@@ -67,6 +67,16 @@ export function lensFeeds(politicalLens = 'neutral', coverageMode = 'balanced') 
   return feeds
 }
 
+// Only http(s) links may reach an <a href>; RSS and model output are untrusted.
+export function safeHref(value) {
+  try {
+    const url = new URL(String(value ?? '').trim())
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : ''
+  } catch {
+    return ''
+  }
+}
+
 export function stripHtml(value = '') {
   return String(value)
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -94,7 +104,7 @@ async function fetchOneFeed(feed) {
   if (data.error) throw new Error(`${feed.label}: ${data.error}`)
   return (data.items ?? []).map((item) => ({
     title: stripHtml(item.title),
-    link: item.link,
+    link: safeHref(item.link),
     pubDate: item.pubDate,
     description: stripHtml(item.description),
     source: feed.label,

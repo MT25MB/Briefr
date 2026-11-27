@@ -104,8 +104,23 @@ export default function PrivacyPanel({
       <div className="mt-5 flex flex-wrap gap-2">
         <button type="button" onClick={onClearCache} className="quiet-button">Clear today's briefing</button>
         <button type="button" onClick={onWipeLocalData} className="quiet-button">Clear local cache & keys</button>
-        <button type="button" onClick={onExportData} className="quiet-button">Export JSON</button>
-        <button type="button" onClick={onDeleteData} className="danger-button">Delete account & data</button>
+        <button
+          type="button"
+          onClick={onExportData}
+          disabled={!account}
+          title={!account ? 'Choose an account first' : undefined}
+          className="quiet-button disabled:opacity-40"
+        >
+          Export JSON
+        </button>
+        <button
+          type="button"
+          onClick={onDeleteData}
+          disabled={!account}
+          className="danger-button disabled:opacity-40"
+        >
+          Delete account & data
+        </button>
       </div>
       <p className="metadata mt-3">No secrets in VITE_* variables</p>
     </div>

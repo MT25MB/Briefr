@@ -1,7 +1,23 @@
 // Provider request formatting only. Rotation and error policy live in llmRotator.js.
 
+// Never send a BYOK secret to an arbitrary cleartext endpoint. Local Ollama is
+// the one legitimate exception.
+export function safeEndpoint(raw, provider) {
+  let url
+  try {
+    url = new URL(String(raw ?? '').trim())
+  } catch {
+    throw new Error('Enter a full service address, e.g. https://api.example.com/v1')
+  }
+  const local = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(url.hostname.toLowerCase())
+  if (url.protocol !== 'https:' && !(provider === 'ollama' && local)) {
+    throw new Error('Service address must use HTTPS. Only a local Ollama address may use HTTP.')
+  }
+  return url.href.replace(/\/+$/, '')
+}
+
 export async function requestText(key, { prompt, systemPrompt = '', model, signal }) {
-  const baseUrl = String(key.baseUrl ?? '').replace(/\/+$/, '')
+  const baseUrl = safeEndpoint(key.baseUrl, key.provider)
 
   if (key.provider === 'gemini') {
     const url = `${baseUrl}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key.apiKey)}`

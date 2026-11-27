@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Card, CardHeader } from './ui.jsx'
 import { formatCountdown, prepareSchedule, timeRange } from '../lib/schedule.js'
 
-function UpNext({ event, isCurrent }) {
+function UpNext({ event, isCurrent, now }) {
   if (!event) return null
   const details = [event.location, event.notes].filter(Boolean).join(' · ')
   return (
@@ -10,7 +10,7 @@ function UpNext({ event, isCurrent }) {
       <p className="metadata">Up next</p>
       <p className="reading-title mt-1">{event.title}</p>
       <p className="metadata tnum mt-1">
-        {timeRange(event)} · {isCurrent ? 'Happening now' : formatCountdown(event)}
+        {timeRange(event)} · {isCurrent ? 'Happening now' : formatCountdown(event, now)}
       </p>
       {details && <p className="metadata mt-1">{details}</p>}
     </div>
@@ -69,6 +69,7 @@ function QuickAdd({ onAdd }) {
 export default function ScheduleCard({
   id,
   events = [],
+  now = new Date(),
   loading = false,
   errors = [],
   dayNotes = '',
@@ -78,7 +79,7 @@ export default function ScheduleCard({
   onRetry,
 }) {
   const [showQuickAdd, setShowQuickAdd] = useState(false)
-  const schedule = useMemo(() => prepareSchedule(events), [events])
+  const schedule = useMemo(() => prepareSchedule(events, now), [events, now])
   const hasEvents = events.length > 0
 
   return (
@@ -137,7 +138,7 @@ export default function ScheduleCard({
 
         {hasEvents && (
           <>
-            <UpNext event={schedule.upNext} isCurrent={schedule.isUpNextCurrent} />
+            <UpNext event={schedule.upNext} isCurrent={schedule.isUpNextCurrent} now={now} />
 
             {schedule.allDay.length > 0 && (
               <div className="mb-5">

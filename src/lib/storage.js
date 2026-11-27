@@ -276,8 +276,16 @@ function hash(value) {
 }
 
 // YYYY-MM-DD + hash of the inputs that change the briefing.
-export function digestCacheKey({ location = '', tone = '', sensitivity = '', commute = '' } = {}) {
-  return `${todayKey()}:${hash([location, tone, sensitivity, commute].join('|'))}`
+export function digestCacheKey({
+  location = '',
+  tone = '',
+  sensitivity = '',
+  commute = '',
+  weatherKey = '',
+  scheduleKey = '',
+  date = todayKey(),
+} = {}) {
+  return `${date}:${hash([location, tone, sensitivity, commute, weatherKey, scheduleKey].join('|'))}`
 }
 
 export function newsCacheKey({
@@ -287,8 +295,9 @@ export function newsCacheKey({
   feeds = [],
   politicalLens = '',
   coverageMode = '',
+  date = todayKey(),
 } = {}) {
-  return `${todayKey()}:news:${hash(
+  return `${date}:news:${hash(
     [location, tone, topics.join(','), feeds.join(','), politicalLens, coverageMode].join('|'),
   )}`
 }

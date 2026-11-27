@@ -7,6 +7,8 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
 export default function Modal({ label, title, description, icon, size = 'md', onClose, children, footer }) {
   const dialogRef = useRef(null)
   const closeRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     const previous = document.activeElement
@@ -15,7 +17,7 @@ export default function Modal({ label, title, description, icon, size = 'md', on
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (event.key !== 'Tab' || !dialogRef.current) return
@@ -37,7 +39,7 @@ export default function Modal({ label, title, description, icon, size = 'md', on
       document.removeEventListener('keydown', onKeyDown, true)
       previous?.focus?.()
     }
-  }, [onClose])
+  }, [])
 
   return (
     <div

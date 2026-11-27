@@ -89,6 +89,13 @@ const WINDOWS = [
 
 function windowStats(hours, fallback) {
   const source = hours.length ? hours : fallback
+  if (!source.length) {
+    return {
+      tempMin: 0, tempMax: 0, feelsMin: 0, feelsMax: 0, precipMax: 0,
+      precipitation: 0, snowfall: 0, windMax: 0,
+      condition: 'Unavailable', icon: 'cloud', hours: 0,
+    }
+  }
   const temps = source.map((hour) => hour.temp)
   const feels = source.map((hour) => hour.feelsLike)
   const codes = source.map((hour) => hour.code)
@@ -112,8 +119,12 @@ function windowStats(hours, fallback) {
 export function normalizeForecast(data, place = {}) {
   const current = data.current ?? {}
   const hourlyRaw = data.hourly ?? {}
-  const startIndex = Math.max(0, hourlyRaw.time?.indexOf(current.time) ?? 0)
-  const next24 = (hourlyRaw.time ?? []).slice(startIndex, startIndex + 24)
+  const times = hourlyRaw.time ?? []
+  // current.time is often not an exact hourly stamp; find the first hour that
+  // has not already passed instead of falling back to midnight.
+  const found = current.time ? times.findIndex((time) => time >= current.time) : -1
+  const startIndex = found > 0 ? found : 0
+  const next24 = times.slice(startIndex, startIndex + 24)
 
   const hourly = next24.map((time, index) => {
     const i = startIndex + index

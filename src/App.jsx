@@ -33,7 +33,6 @@ import {
   clearTriage,
   emptyTriage,
   loadTriage,
-  setTriageItemDone,
   triageMessages,
 } from './lib/triageService.js'
 import { buildBriefingScript } from './lib/audioBriefing.js'
@@ -76,10 +75,13 @@ export default function App() {
   const [toast, setToast] = useState(null)
   const [calendarNonce, setCalendarNonce] = useState(0)
   const [today, setToday] = useState(todayKey)
+  const [now, setNow] = useState(() => new Date())
   const [triage, setTriage] = useState(() => loadTriage(todayKey()))
   const [theme, setTheme] = useState(readTheme)
   const [resolvedTheme, setResolvedTheme] = useState(() => applyTheme(readTheme()))
   const runCounterRef = useRef(0)
+  const runMorningRef = useRef(null)
+  const triageSeqRef = useRef(0)
 
   const [weather, setWeather] = useState(mockWeather)
   const [weatherMeta, setWeatherMeta] = useState({ source: 'mock', loading: false, error: null })
@@ -139,7 +141,24 @@ export default function App() {
           loadCloudTriage(next.id, todayKey()),
         ])
         if (cloud?.prefs) nextPrefs = { ...nextPrefs, ...cloud.prefs }
-        if (cloud?.calendars) nextCalendars = { ...nextCalendars, ...cloud.calendars }
+        if (cloud?.calendars) {
+          // Sync only non-secret config; never let a partial cloud row erase
+          // locally stored OAuth tokens, database ids, or added ICS feeds.
+          const merged = {
+            google: { ...(nextCalendars.google ?? {}), ...(cloud.calendars.google ?? {}) },
+            notion: { ...(nextCalendars.notion ?? {}), ...(cloud.calendars.notion ?? {}) },
+            caldav: { ...(nextCalendars.caldav ?? {}), ...(cloud.calendars.caldav ?? {}) },
+            ics: [...(nextCalendars.ics ?? []), ...(cloud.calendars.ics ?? [])],
+          }
+          const seen = new Set()
+          merged.ics = merged.ics.filter((feed) => {
+            const id = feed?.id ?? feed?.url
+            if (!id || seen.has(id)) return false
+            seen.add(id)
+            return true
+          })
+          nextCalendars = merged
+        }
         if (cloudTriage) nextTriage = cloudTriage
         await saveProfile(next.id, { displayName: next.name, email: next.email })
       } catch (error) {
@@ -218,9 +237,10 @@ export default function App() {
     if (meta) meta.content = resolvedTheme === 'dark' ? '#14130f' : '#f7f6f2'
   }, [resolvedTheme])
 
-  // Midnight rollover resets daily triage and schedule without touching prefs or keys.
+  // Keep countdowns and "Happening now" live, and roll daily state at midnight.
   useEffect(() => {
     const timer = window.setInterval(() => {
+      setNow(new Date())
       const key = todayKey()
       if (key === today) return
       setToday(key)
@@ -348,12 +368,27 @@ export default function App() {
         }
       }
     },
-    [prefs, keys, calendars, calendarNonce, today],
+    [prefs, keys, calendars, today],
   )
+  runMorningRef.current = runMorning
 
+  // Auto-run only on genuine briefing inputs. Rotation updates key status, and
+  // that must not launch a second full digest (or a force-refresh race).
+  const autoRunKey = JSON.stringify([
+    today,
+    calendarNonce,
+    prefs.location,
+    prefs.tone,
+    prefs.sensitivity,
+    prefs.commute,
+    prefs.topics,
+    prefs.feeds,
+    prefs.politicalLens,
+    prefs.coverageMode,
+  ])
   useEffect(() => {
-    runMorning()
-  }, [runMorning])
+    runMorningRef.current?.()
+  }, [autoRunKey])
 
   const simulateRateLimit = (keyId, daily = false) => {
     const target = keyId ? keys.find((key) => key.id === keyId) : keys.find(isKeyEligible)
@@ -421,7 +456,6 @@ export default function App() {
   const refreshDigest = () => {
     if (refreshing) return
     if (prefs.rateLimitSim) simulateRateLimit()
-    setCalendarNonce((value) => value + 1)
     setToast({ tone: 'ok', message: 'Getting today together…' })
     runMorning({ forceRefresh: true })
   }
@@ -443,7 +477,7 @@ export default function App() {
       wardrobe,
       newsDigest,
       rawNews,
-      inbox: digest.inbox,
+      inbox: triage,
       schedule: events,
     })
     const utterance = new SpeechSynthesisUtterance(script)
@@ -462,22 +496,26 @@ export default function App() {
   }
 
   const pauseBriefing = () => {
+    if (!('speechSynthesis' in window)) return
     window.speechSynthesis.pause()
     setAudioState('paused')
   }
 
   const resumeBriefing = () => {
+    if (!('speechSynthesis' in window)) return
     window.speechSynthesis.resume()
     setAudioState('playing')
   }
 
   const stopBriefing = () => {
-    window.speechSynthesis.cancel()
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
     utteranceRef.current = null
     setAudioState('idle')
   }
 
   const handleTriage = async (text) => {
+    const seq = triageSeqRef.current + 1
+    triageSeqRef.current = seq
     setTriageLoading(true)
     const keysSnapshot = keys
     try {
@@ -488,18 +526,27 @@ export default function App() {
         tone: prefs.tone,
         date: today,
       })
+      if (seq !== triageSeqRef.current) return // a newer paste already landed
       setTriage(next)
       if (keysSnapshot.length && next.source === 'rules') {
         setToast({ tone: 'warn', message: "Couldn't use AI for this — sorted it on your device instead." })
       }
     } finally {
-      setTriageLoading(false)
+      if (seq === triageSeqRef.current) setTriageLoading(false)
       const after = JSON.stringify(loadKeys())
       if (after !== JSON.stringify(keysSnapshot)) setKeys(loadKeys())
     }
   }
 
-  const completeTriageItem = (id) => setTriage(setTriageItemDone(triage, id, true))
+  const completeTriageItem = (id) =>
+    setTriage((previous) => {
+      const next = {
+        ...previous,
+        needsAction: previous.needsAction.map((item) => (item.id === id ? { ...item, done: true } : item)),
+      }
+      saveTriage(next)
+      return next
+    })
 
   const clearTriageNow = () => {
     setTriage(clearTriage(today))
@@ -609,7 +656,7 @@ export default function App() {
   }
 
   const showSetupBanner = !prefs.onboardingDone && !bannerDismissed
-  const dayPlan = prepareSchedule(events)
+  const dayPlan = prepareSchedule(events, now)
   const openActions = triage.needsAction.filter((item) => !item.done).length
   const timingFlags =
     Object.keys(dayPlan.friction).length +
@@ -713,6 +760,7 @@ export default function App() {
               <ScheduleCard
                 id="your-day"
                 events={events}
+                now={now}
                 loading={calendarMeta.loading}
                 errors={calendarMeta.errors}
                 dayNotes={wardrobe.dayNotes ?? ''}
@@ -767,7 +815,10 @@ export default function App() {
           onWipeLocalData={wipeLocalData}
           account={account}
           prefs={prefs}
-          onOpenAccount={() => setShowAccount(true)}
+          onOpenAccount={() => {
+            setShowKeyManager(false)
+            setShowAccount(true)
+          }}
           onSignOut={handleSignOut}
           onPrefsChange={updateSettings}
           theme={theme}
@@ -802,7 +853,6 @@ export default function App() {
       <div aria-live="polite" className="pointer-events-none fixed bottom-20 right-5 z-[60] max-w-sm lg:bottom-5">
         {toast && (
           <div
-            role="status"
             className={`pointer-events-auto flex items-start gap-3 rounded-lg bg-[var(--surface)] px-4 py-3 text-[0.875rem] leading-snug ${TOAST_TONES[toast.tone] ?? TOAST_TONES.neutral}`}
           >
             {toast.tone === 'warn' ? (

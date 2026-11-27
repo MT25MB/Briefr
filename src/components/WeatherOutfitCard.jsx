@@ -131,8 +131,8 @@ export default function WeatherOutfitCard({
                   <div className="min-w-0 flex-1">
                     <p className="metadata tnum">{window?.precipMax ?? 0}% rain · {entry.tempSummary}</p>
                     <p className="mt-2 max-w-prose text-[0.9375rem] leading-relaxed text-[var(--ink)]">{entry.outfit}</p>
-                    {entry.gearTags.length > 0 && (
-                      <p className="metadata mt-2">{entry.gearTags.join(' · ')}</p>
+                    {(entry.gearTags ?? []).length > 0 && (
+                      <p className="metadata mt-2">{(entry.gearTags ?? []).join(' · ')}</p>
                     )}
                   </div>
                 </li>

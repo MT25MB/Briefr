@@ -19,6 +19,7 @@ import { Segmented } from './ui.jsx'
 import ProviderGuides from './ProviderGuides.jsx'
 import PrivacyPanel from './PrivacyPanel.jsx'
 import { PROVIDER_CONFIG, getKeyStatus, markReady } from '../lib/llmRotator.js'
+import { safeEndpoint } from '../lib/llmClient.js'
 import {
   COVERAGE_MODES,
   COVERAGE_MODE_LABELS,
@@ -67,12 +68,19 @@ export function KeyEditor({ keys, onChange, onPing, onSimulateRateLimit, compact
     const value = provider === 'ollama' ? apiKey.trim() || 'local' : apiKey.trim()
     if (!value) return
     const config = PROVIDER_CONFIG[provider]
+    let endpoint
+    try {
+      endpoint = safeEndpoint(baseUrl.trim() || config.baseUrl, provider)
+    } catch (error) {
+      setNotice(error.message)
+      return
+    }
     const newKey = {
       id: `key_${Date.now()}`,
       provider,
       apiKey: value,
       label: label.trim() || `${config.label} · ····${value.slice(-4)}`,
-      baseUrl: baseUrl.trim() || config.baseUrl,
+      baseUrl: endpoint,
       cooldownUntil: null,
       dailyExhausted: false,
       lastError: null,
