@@ -21,7 +21,12 @@ import { KeyEditor } from './KeyManagerModal.jsx'
 import ProviderGuides from './ProviderGuides.jsx'
 import LocationSearch from './LocationSearch.jsx'
 import { TOPIC_PACKS } from '../lib/mockDigest.js'
-import { COVERAGE_MODES, POLITICAL_LENSES } from '../lib/storage.js'
+import {
+  COVERAGE_MODES,
+  COVERAGE_MODE_LABELS,
+  POLITICAL_LENSES,
+  POLITICAL_LENS_LABELS,
+} from '../lib/storage.js'
 
 const STEPS = ['Free AI keys', 'Your details', 'What you follow']
 const SENSITIVITIES = ['Runs Cold', 'Normal', 'Runs Warm']
@@ -47,6 +52,13 @@ export default function OnboardingWizard({
       topics: settings.topics.includes(topic)
         ? settings.topics.filter((item) => item !== topic)
         : [...settings.topics, topic],
+    })
+  }
+
+  const setLens = (lens) => {
+    onChange({
+      politicalLens: lens,
+      ...(lens === 'neutral' ? {} : { savedPoliticalLens: lens }),
     })
   }
 
@@ -239,45 +251,47 @@ export default function OnboardingWizard({
               </div>
 
               <div className="mt-5 border-t border-[var(--line)] pt-5">
-                <p className="text-[0.875rem] font-semibold text-[var(--ink)]">News lens (optional)</p>
-                <p className="mt-1 text-[0.8125rem] leading-snug text-[var(--muted)]">
-                  If you want, tell Briefr how to frame the news. This only changes which stories get
-                  ranked higher and how they're summarized. Weather and schedule never change.
+                <p className="reading-title">Political lens (optional)</p>
+                <p className="metadata mt-1">
+                  Choose a general leaning if you want news framed for it. This only changes news selection and framing — weather, calendar, and factual claims never change. Skip this and keep a neutral briefing.
                 </p>
+                <label htmlFor="political-lens" className="sr-only">Political news lens</label>
                 <select
+                  id="political-lens"
                   aria-label="Political news lens"
-                  value={settings.politicalLens ?? 'Neutral / Balanced'}
-                  onChange={(event) => onChange({ politicalLens: event.target.value })}
+                  value={settings.politicalLens ?? 'neutral'}
+                  onChange={(event) => setLens(event.target.value)}
                   className="field mt-3 min-h-12"
                 >
                   {POLITICAL_LENSES.map((lens) => (
-                    <option key={lens} value={lens}>{lens}</option>
+                    <option key={lens} value={lens}>{POLITICAL_LENS_LABELS[lens]}</option>
                   ))}
                 </select>
-                {settings.politicalLens !== 'Neutral / Balanced' &&
-                  settings.politicalLens !== 'None / Unfiltered' && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                {settings.politicalLens !== 'neutral' && settings.politicalLens !== 'unfiltered' && (
+                  <div className="mt-3">
+                    <p className="metadata">Coverage</p>
+                    <div className="mt-2 flex flex-wrap gap-3">
                       {COVERAGE_MODES.map((mode) => {
-                        const active = (settings.coverageMode ?? 'Balanced / Both Sides') === mode
+                        const active = (settings.coverageMode ?? 'balanced') === mode
                         return (
                           <button
                             key={mode}
                             type="button"
                             onClick={() => onChange({ coverageMode: mode })}
-                            className={`rounded-lg border px-2.5 py-1.5 text-[0.75rem] font-semibold ${
-                              active
-                                ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
-                                : 'border-[var(--line)] text-[var(--muted)]'
+                            aria-pressed={active}
+                            className={`inline-flex min-h-12 items-center border-b-2 px-2 text-[0.875rem] font-semibold ${
+                              active ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)]'
                             }`}
                           >
-                            {mode}
+                            {COVERAGE_MODE_LABELS[mode]}
                           </button>
                         )
                       })}
                     </div>
-                  )}
-                <p className="mt-2 text-[0.75rem] leading-snug text-[var(--faint)]">
-                  Stored with your account preferences. You can change or clear it any time in settings.
+                  </div>
+                )}
+                <p className="metadata mt-3">
+                  Saved with your preferences. Switch between this lens and Neutral from the news card at any time.
                 </p>
               </div>
 

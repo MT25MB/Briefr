@@ -280,6 +280,8 @@ export function parseIcsFeed(text, { source = 'Calendar', date, timeZone = 'UTC'
       end: occurrence.end.toISOString(),
       allDay: occurrence.allDay,
       location: event.location,
+      notes: get('DESCRIPTION')?.value ?? '',
+      status: get('STATUS')?.value ?? '',
     }))
   })
 }

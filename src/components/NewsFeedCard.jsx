@@ -1,18 +1,10 @@
 import { useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { Card, CardHeader, Segmented } from './ui.jsx'
+import { COVERAGE_MODE_LABELS, POLITICAL_LENS_LABELS } from '../lib/storage.js'
 
 const FILTERS = ['All', 'Local', 'Important']
 const VIEWS = ['Quick read', 'Every headline']
-
-const LENS_LABELS = {
-  'Neutral / Balanced': 'Neutral / Balanced',
-  'Conservative / Republican': 'Conservative / Republican',
-  'Liberal / Democratic': 'Liberal / Democratic',
-  Libertarian: 'Libertarian',
-  'Independent / Centrist': 'Independent / Centrist',
-  'None / Unfiltered': 'None / Unfiltered',
-}
 
 function LoadingLines() {
   return (
@@ -93,9 +85,10 @@ export default function NewsFeedCard({
   source = 'raw',
   loading = false,
   error = null,
-  politicalLens = 'Neutral / Balanced',
-  coverageMode = 'Balanced / Both Sides',
-  onResetLens,
+  onRetry,
+  politicalLens = 'neutral',
+  coverageMode = 'balanced',
+  onToggleLens,
   onOpenSettings,
 }) {
   const [view, setView] = useState('Quick read')
@@ -123,21 +116,22 @@ export default function NewsFeedCard({
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-6 pt-4">
         <button
           type="button"
-          onClick={onOpenSettings}
+          onClick={onToggleLens ?? onOpenSettings}
+          aria-label={`News lens: ${POLITICAL_LENS_LABELS[politicalLens] ?? politicalLens}. Click to switch lens.`}
           className="inline-flex min-h-12 items-center text-[0.875rem] font-semibold text-[var(--accent)] hover:underline"
         >
-          Lens: {LENS_LABELS[politicalLens] ?? politicalLens}
+          Lens: {POLITICAL_LENS_LABELS[politicalLens] ?? politicalLens}
         </button>
         <span className="metadata">
-          {coverageMode === 'Aligned Lens' ? 'Aligned lens' : 'Both sides when available'}
+          {COVERAGE_MODE_LABELS[coverageMode] ?? coverageMode}
         </span>
-        {politicalLens !== 'Neutral / Balanced' && onResetLens && (
+        {onToggleLens && (
           <button
             type="button"
-            onClick={onResetLens}
+            onClick={onToggleLens}
             className="metadata ml-auto inline-flex min-h-12 items-center underline hover:text-[var(--ink)]"
           >
-            Reset to neutral
+            {politicalLens === 'neutral' ? 'Choose a lens' : 'Back to neutral'}
           </button>
         )}
       </div>
@@ -191,7 +185,12 @@ export default function NewsFeedCard({
         </div>
       ))}
 
-      {error && <p className="metadata px-6 pb-4 text-[var(--warning)]">{error}</p>}
+      {error && (
+        <div className="flex flex-wrap items-center gap-3 px-6 pb-4">
+          <p className="metadata text-[var(--warning)]">{error}</p>
+          {onRetry && <button type="button" onClick={onRetry} className="quiet-button">Retry feeds</button>}
+        </div>
+      )}
     </Card>
   )
 }

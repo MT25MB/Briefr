@@ -30,6 +30,7 @@ export default function WeatherOutfitCard({
   weather,
   wardrobe,
   error = null,
+  onRetry,
   preferences = {},
 }) {
   const [selected, setSelected] = useState(0)
@@ -140,11 +141,14 @@ export default function WeatherOutfitCard({
           </ol>
         </section>
 
-        {(error || (preferences.sensitivity && preferences.sensitivity !== 'Normal')) && (
-          <p className="metadata mt-6">
-            {error && `Couldn't get live weather: ${error}. `}
-            {preferences.sensitivity && preferences.sensitivity !== 'Normal' && `Tuned for ${preferences.sensitivity.toLowerCase()}.`}
-          </p>
+        {error && (
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <p className="metadata text-[var(--warning)]">Couldn't get live weather: {error}.</p>
+            {onRetry && <button type="button" onClick={onRetry} className="quiet-button">Try again</button>}
+          </div>
+        )}
+        {preferences.sensitivity && preferences.sensitivity !== 'Normal' && (
+          <p className="metadata mt-6">Tuned for {preferences.sensitivity.toLowerCase()}.</p>
         )}
       </div>
     </Card>

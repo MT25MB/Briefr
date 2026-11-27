@@ -1,6 +1,7 @@
 // One-call morning run: free weather + RSS, optional LLM synthesis, same-day cache.
 import { digest, mockWeather } from './mockDigest.js'
-import { loadKeys, digestCacheKey, newsCacheKey } from './storage.js'
+import { loadCalendars, loadKeys, digestCacheKey, newsCacheKey, todayKey } from './storage.js'
+import { getTodaysEvents } from './calendarService.js'
 import { runWithRotation } from './llmRotator.js'
 import { fetchHourlyWeather, geocodeLocation, normalizeForecast, summarizeWeather } from './weatherService.js'
 import { fetchNewsDigest } from './rssService.js'
@@ -44,6 +45,8 @@ async function loadNews(prefs) {
       topics: prefs.topics,
       feeds: prefs.feeds,
       location: prefs.location,
+      politicalLens: prefs.politicalLens,
+      coverageMode: prefs.coverageMode,
     })
     return { items: result.items, errors: result.errors, sourceCount: result.sourceCount }
   } catch {
@@ -51,9 +54,28 @@ async function loadNews(prefs) {
   }
 }
 
-// Coordinates the whole briefing. Falls back to rules + raw headlines at $0.
-export async function runMorningBriefing({ prefs, keys = [], forceRefresh = false, schedule = [] }) {
-  const [forecast, feed] = await Promise.all([loadWeather(prefs.location), loadNews(prefs)])
+// Coordinates the whole morning run: calendars, weather, feeds, and synthesis.
+// Every section degrades independently; one failed source cannot break the page.
+export async function runMorningDigest({
+  prefs,
+  keys = [],
+  forceRefresh = false,
+  connections,
+  date = todayKey(),
+}) {
+  const activeConnections = connections ?? loadCalendars()
+  const connected = Boolean(
+    activeConnections.google?.token ||
+      (activeConnections.notion?.token && activeConnections.notion?.databaseId) ||
+      activeConnections.ics?.length ||
+      (activeConnections.caldav?.proxyUrl && activeConnections.caldav?.calendarUrl),
+  )
+  const [calendar, forecast, feed] = await Promise.all([
+    getTodaysEvents(activeConnections, date).catch((error) => ({ events: [], errors: [error.message] })),
+    loadWeather(prefs.location),
+    loadNews(prefs),
+  ])
+  const schedule = calendar.events ?? []
 
   const preferences = {
     sensitivity: prefs.sensitivity,
@@ -137,6 +159,8 @@ export async function runMorningBriefing({ prefs, keys = [], forceRefresh = fals
   }
 
   return {
+    schedule,
+    calendarMeta: { loading: false, connected, errors: calendar.errors ?? [] },
     weather: forecast.weather,
     weatherMeta: { source: forecast.source, error: forecast.error, loading: false },
     wardrobe,
@@ -148,4 +172,10 @@ export async function runMorningBriefing({ prefs, keys = [], forceRefresh = fals
     newsRankMeta,
     keys: loadKeys().length ? loadKeys() : activeKeys,
   }
+}
+
+// Older call sites that already fetched a schedule keep working.
+export async function runMorningBriefing({ schedule = [], ...args }) {
+  const result = await runMorningDigest(args)
+  return { ...result, schedule: schedule.length ? schedule : result.schedule }
 }

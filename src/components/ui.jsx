@@ -1,6 +1,6 @@
-export function Card({ className = '', children }) {
+export function Card({ id, className = '', children }) {
   return (
-    <section className={`bg-[var(--surface)] ${className}`}>
+    <section id={id} className={`bg-[var(--surface)] ${className}`}>
       {children}
     </section>
   )

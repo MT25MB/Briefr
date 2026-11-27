@@ -39,6 +39,34 @@ export function localFeedUrl(location = '') {
   return googleNews(`${String(location).trim() || 'local'} local news`)
 }
 
+// Perspective feeds are additions, not replacements: the core topic feeds stay
+// untouched so a lens can never remove ordinary local, tech, world or finance news.
+const LENS_QUERIES = {
+  conservative: 'conservative policy legislation debate',
+  liberal: 'progressive policy legislation debate',
+  libertarian: 'libertarian civil liberties policy debate',
+  independent: 'independent political analysis policy debate',
+}
+
+export function lensFeeds(politicalLens = 'neutral', coverageMode = 'balanced') {
+  if (!LENS_QUERIES[politicalLens]) return []
+  const feeds = [
+    {
+      label: `Perspective · ${politicalLens}`,
+      url: googleNews(LENS_QUERIES[politicalLens]),
+      category: 'Perspective',
+    },
+  ]
+  if (coverageMode === 'balanced') {
+    feeds.push({
+      label: 'Perspective · broader debate',
+      url: googleNews('political policy debate opposing viewpoints'),
+      category: 'Perspective',
+    })
+  }
+  return feeds
+}
+
 export function stripHtml(value = '') {
   return String(value)
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -75,7 +103,14 @@ async function fetchOneFeed(feed) {
   }))
 }
 
-export async function fetchNewsDigest({ topics = [], feeds = [], location = '', limit = 28 }) {
+export async function fetchNewsDigest({
+  topics = [],
+  feeds = [],
+  location = '',
+  politicalLens = 'neutral',
+  coverageMode = 'balanced',
+  limit = 28,
+}) {
   const selected = RSS_PACKS.filter((pack) => topics.includes(pack.id))
   const targets = []
 
@@ -96,6 +131,9 @@ export async function fetchNewsDigest({ topics = [], feeds = [], location = '', 
       // Keep the raw value as a label if it is not parseable.
     }
     targets.push({ label: host, url, category: 'Custom feed' })
+  })
+  lensFeeds(politicalLens, coverageMode).forEach((feed) => {
+    if (!targets.some((target) => target.url === feed.url)) targets.push(feed)
   })
 
   const results = await Promise.allSettled(targets.map(fetchOneFeed))

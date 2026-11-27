@@ -170,55 +170,6 @@ export const digest = {
     },
   },
 
-  schedule: [
-    {
-      id: 's1',
-      time: '8:30',
-      meridiem: 'AM',
-      title: 'Team standup',
-      meta: 'Zoom · 15 min',
-      tag: 'Every week',
-      accent: 'indigo',
-      current: true,
-    },
-    {
-      id: 's2',
-      time: '10:00',
-      meridiem: 'AM',
-      title: 'Q4 review prep',
-      meta: 'Focus block · 1 hr',
-      tag: 'Focus time',
-      accent: 'violet',
-    },
-    {
-      id: 's3',
-      time: '12:15',
-      meridiem: 'PM',
-      title: 'Lunch with Dana',
-      meta: 'Cafe on 5th Ave · 45 min',
-      tag: 'Personal',
-      accent: 'emerald',
-    },
-    {
-      id: 's4',
-      time: '2:00',
-      meridiem: 'PM',
-      title: 'Design feedback round',
-      meta: 'Studio B · 45 min',
-      tag: 'Meeting',
-      accent: 'sky',
-    },
-    {
-      id: 's5',
-      time: '5:30',
-      meridiem: 'PM',
-      title: 'Leave before the rain',
-      meta: 'Commute home · 35 min',
-      tag: 'Reminder',
-      accent: 'amber',
-    },
-  ],
-
   inbox: {
     needsAction: [
       {
@@ -329,24 +280,6 @@ export const TOPIC_PACKS = [
   { id: 'World', label: 'World', detail: 'Major global stories', icon: 'Globe2' },
   { id: 'Finance', label: 'Finance', detail: 'Markets & the economy', icon: 'TrendingUp' },
 ]
-
-// Same shape as normalizeForecast(), so the live and offline paths share one card.
-export const mockCalendarEvents = digest.schedule.map((item, index) => {
-  const hour = Number(item.time.split(':')[0]) + (item.meridiem === 'PM' && item.time !== '12' ? 12 : 0)
-  const minute = Number(item.time.split(':')[1] ?? 0)
-  const date = new Date()
-  date.setHours(hour, minute, 0, 0)
-  return {
-    id: `preview-${item.id}`,
-    source: 'Preview',
-    title: item.title,
-    start: date,
-    end: new Date(date.getTime() + (index === 1 ? 3_600_000 : 1_800_000)),
-    allDay: false,
-    location: item.meta,
-    status: item.tag,
-  }
-})
 
 export const mockWeather = {
   locationLabel: digest.location,

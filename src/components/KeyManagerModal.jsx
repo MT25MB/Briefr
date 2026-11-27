@@ -19,7 +19,12 @@ import { Segmented } from './ui.jsx'
 import ProviderGuides from './ProviderGuides.jsx'
 import PrivacyPanel from './PrivacyPanel.jsx'
 import { PROVIDER_CONFIG, getKeyStatus, markReady } from '../lib/llmRotator.js'
-import { COVERAGE_MODES, POLITICAL_LENSES } from '../lib/storage.js'
+import {
+  COVERAGE_MODES,
+  COVERAGE_MODE_LABELS,
+  POLITICAL_LENSES,
+  POLITICAL_LENS_LABELS,
+} from '../lib/storage.js'
 
 const STATUS_TONES = {
   ready: 'emerald',
@@ -270,6 +275,8 @@ export default function KeyManagerModal({
   onWipeLocalData,
   account,
   prefs,
+  onOpenAccount,
+  onSignOut,
   onPrefsChange,
   theme = 'system',
   onThemeChange,
@@ -305,6 +312,12 @@ export default function KeyManagerModal({
     setLocalModel('')
   }
 
+  const setLens = (lens) =>
+    onPrefsChange({
+      politicalLens: lens,
+      ...(lens === 'neutral' ? {} : { savedPoliticalLens: lens }),
+    })
+
   const footer = (
     <>
       <div className="flex flex-wrap items-center gap-4">
@@ -325,23 +338,28 @@ export default function KeyManagerModal({
     >
       <div>
         <div className="border-t border-[var(--line)] pt-5">
-            <h3 className="reading-title">News lens</h3>
-            <p className="metadata mt-1">Changes which stories rise to the top. Weather and your schedule stay untouched.</p>
+            <h3 className="reading-title">Political lens</h3>
+            <p className="metadata mt-1">
+              Optional. Chooses how news is ranked and framed. Weather, calendar, and factual claims are never changed.
+            </p>
+            <label htmlFor="settings-political-lens" className="sr-only">Political news lens</label>
             <select
+              id="settings-political-lens"
               aria-label="Political news lens"
-              value={prefs?.politicalLens ?? 'Neutral / Balanced'}
-              onChange={(event) => onPrefsChange({ politicalLens: event.target.value })}
+              value={prefs?.politicalLens ?? 'neutral'}
+              onChange={(event) => setLens(event.target.value)}
               className="field mt-3 min-h-12"
             >
               {POLITICAL_LENSES.map((lens) => (
-                <option key={lens} value={lens}>{lens}</option>
+                <option key={lens} value={lens}>{POLITICAL_LENS_LABELS[lens]}</option>
               ))}
             </select>
-            {(prefs?.politicalLens ?? 'Neutral / Balanced') !== 'Neutral / Balanced' &&
-              prefs?.politicalLens !== 'None / Unfiltered' && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
+            {prefs?.politicalLens !== 'neutral' && prefs?.politicalLens !== 'unfiltered' && (
+              <div className="mt-3">
+                <p className="metadata">Coverage</p>
+                <div className="mt-2 flex flex-wrap gap-3">
                   {COVERAGE_MODES.map((mode) => {
-                    const active = (prefs?.coverageMode ?? 'Balanced / Both Sides') === mode
+                    const active = (prefs?.coverageMode ?? 'balanced') === mode
                     return (
                       <button
                         key={mode}
@@ -352,13 +370,14 @@ export default function KeyManagerModal({
                           active ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:text-[var(--ink)]'
                         }`}
                       >
-                        {mode}
+                        {COVERAGE_MODE_LABELS[mode]}
                       </button>
                     )
                   })}
                 </div>
-              )}
-            <p className="metadata mt-2">Saved with your preferences. Switch back any time.</p>
+              </div>
+            )}
+            <p className="metadata mt-3">Switch between this lens and Neutral from the news card.</p>
 
             <div className="mt-5">
               <p className="reading-title">Appearance</p>
@@ -397,6 +416,8 @@ export default function KeyManagerModal({
               keyCount={keys.length}
               prefs={prefs}
               account={account}
+              onOpenAccount={onOpenAccount}
+              onSignOut={onSignOut}
               onDisconnectGoogle={onDisconnectGoogle}
               onDisconnectNotion={onDisconnectNotion}
               onDisconnectIcs={onDisconnectIcs}

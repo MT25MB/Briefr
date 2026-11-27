@@ -1,22 +1,23 @@
 // Cloudflare Pages Function → /api/ics
-// Fetches one read-only ICS link and returns only today's normalized events.
-// No event details are logged or stored.
+// Fetches one read-only ICS link and returns only the requested local day's events.
+// Calendar links can be private, so responses are never cached publicly and
+// neither URLs nor event details are ever logged.
 import { fetchIcsFeed } from '../../api/icsShared.js'
 
-const EDGE_CACHE = 'public, max-age=900, s-maxage=1800, stale-while-revalidate=3600'
-
-function json(body, status, cache = false) {
+function json(body, status) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': cache ? EDGE_CACHE : 'no-store',
+      'Cache-Control': 'no-store',
+      'Pragma': 'no-cache',
       'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer',
     },
   })
 }
 
-export const onRequest = async ({ request }) => {
+export const onRequestGet = async ({ request }) => {
   const url = new URL(request.url)
   const params = url.searchParams
   const date = /^\d{4}-\d{2}-\d{2}$/.test(params.get('date') ?? '')
@@ -28,7 +29,7 @@ export const onRequest = async ({ request }) => {
     source: params.get('source') ?? 'Calendar',
     timeZone: params.get('timeZone') || 'UTC',
   })
-  return json(body, status, status === 200)
+  return json(body, status)
 }
 
-export const onRequestGet = onRequest
+export const onRequest = onRequestGet

@@ -1,39 +1,80 @@
 import { useState } from 'react'
 import Modal from './Modal.jsx'
-import { deleteAccount, exportAccountData, signIn, signOut, signUp } from '../lib/accountService.js'
-import { continueLocalOnly, isCloudConfigured } from '../lib/auth.js'
+import {
+  deleteAccount,
+  exportAccountData,
+  isCloudConfigured,
+  refreshSession,
+  resetPassword,
+  sendMagicLink,
+  signIn,
+  signInWithOAuth,
+  signOut,
+  signUp,
+  updatePassword,
+} from '../lib/accountService.js'
+import { continueLocalOnly } from '../lib/auth.js'
 
-const inputClass =
-  'w-full rounded-lg border border-[var(--line)] px-3 py-2 text-[0.875rem] text-[var(--ink)] placeholder:text-[var(--faint)] focus:border-[var(--accent-line)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]'
+const inputClass = 'field min-h-12'
 
 export default function AccountModal({ account, onChange, onClose, onDeleted }) {
   const [mode, setMode] = useState('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
+  const [newPassword, setNewPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
 
-  const submit = async (event) => {
-    event.preventDefault()
+  const run = async (action, success) => {
     setBusy(true)
     setError('')
     try {
-      const result = mode === 'signup'
-        ? await signUp({ email, password, name })
-        : await signIn({ email, password })
-      if (result?.needsConfirmation) {
-        setNotice('Check your email to confirm, then sign in.')
-        return
-      }
-      onChange(result)
-      setNotice(mode === 'signup' ? 'Your account is ready.' : 'Welcome back.')
+      const result = await action()
+      if (success) await success(result)
     } catch (caught) {
       setError(caught.message)
     } finally {
       setBusy(false)
     }
+  }
+
+  const submit = (event) => {
+    event.preventDefault()
+    if (mode === 'magic') {
+      run(() => sendMagicLink(email), () => setNotice('Check your email for a sign-in link.'))
+      return
+    }
+    if (mode === 'reset') {
+      run(() => resetPassword(email), () => setNotice('Password reset link sent. Check your email.'))
+      return
+    }
+    if (mode === 'signup') {
+      run(
+        () => signUp({ email, password, name }),
+        (result) => {
+          if (result?.needsConfirmation) {
+            setNotice('Check your email to confirm, then sign in.')
+            return
+          }
+          onChange(result)
+          setNotice('Your account is ready.')
+        },
+      )
+      return
+    }
+    run(
+      () => signIn({ email, password }),
+      (result) => {
+        if (result?.needsMagicLink) {
+          setNotice('Check your email for a sign-in link.')
+          return
+        }
+        onChange(result)
+        setNotice('Welcome back.')
+      },
+    )
   }
 
   const downloadData = () => {
@@ -52,139 +93,197 @@ export default function AccountModal({ account, onChange, onClose, onDeleted }) 
     }
   }
 
-  const removeAccount = async () => {
-    setBusy(true)
-    setError('')
-    try {
-      await deleteAccount()
-      onChange(null)
-      onDeleted?.()
-      setNotice('Account and local data removed.')
-    } catch (caught) {
-      setError(caught.message)
-    } finally {
-      setBusy(false)
-    }
-  }
+  const removeAccount = () =>
+    run(
+      () => deleteAccount(),
+      () => {
+        onChange(null)
+        onDeleted?.()
+        setNotice('Account and local data removed.')
+      },
+    )
 
   return (
     <Modal
       label="Your account"
       title="Your account"
-      description="Keeps each person's settings and calendars separate on this device."
+      description="Real accounts sync only non-secret settings. Keys stay on this device."
       size="sm"
       onClose={onClose}
     >
       <div>
-          {!account ? (
-            <form onSubmit={submit} className="space-y-3">
-              <div className="flex gap-2 rounded-xl bg-[var(--line-soft)] p-1">
-                {['signin', 'signup'].map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => {
-                      setMode(item)
-                      setError('')
-                    }}
-                    className={`min-h-12 flex-1 rounded-lg px-3 text-[0.8125rem] font-semibold transition-colors ${
-                      mode === item ? 'bg-[var(--surface)] text-[var(--ink)] ' : 'text-[var(--muted)]'
-                    }`}
-                  >
-                    {item === 'signin' ? 'Sign in' : 'Create account'}
-                  </button>
-                ))}
-              </div>
+        {!account ? (
+          <form onSubmit={submit} className="space-y-3">
+            <div className="flex gap-4 border-b border-[var(--line)]">
+              {[
+                ['signin', 'Sign in'],
+                ['signup', 'Create account'],
+                ['magic', 'Magic link'],
+                ['reset', 'Reset password'],
+              ].map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setMode(key)
+                    setError('')
+                  }}
+                  aria-pressed={mode === key}
+                  className={`-mb-px min-h-12 border-b-2 text-[0.8125rem] font-semibold ${
+                    mode === key
+                      ? 'border-[var(--accent)] text-[var(--accent)]'
+                      : 'border-transparent text-[var(--faint)] hover:text-[var(--ink)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
-              {mode === 'signup' && (
-                <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name (optional)" aria-label="Your name" />
-              )}
-              <input className={inputClass} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" aria-label="Email address" required />
-              <input className={inputClass} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (at least 8 characters)" aria-label="Password" required />
+            {mode === 'signup' && (
+              <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name (optional)" aria-label="Your name" />
+            )}
+            <input className={inputClass} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" aria-label="Email address" required />
+            {(mode === 'signin' || mode === 'signup') && (
+              <input
+                className={inputClass}
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password (at least 8 characters)"
+                aria-label="Password"
+                required
+                minLength={8}
+              />
+            )}
 
-              {error && <p className="rounded-lg bg-[var(--danger-soft)] px-3 py-2 text-[0.8125rem] text-[var(--danger)]">{error}</p>}
-              {notice && <p className="rounded-lg bg-[var(--success-soft)] px-3 py-2 text-[0.8125rem] text-[var(--success)]">{notice}</p>}
+            {error && <p className="rounded-lg bg-[var(--danger-soft)] px-3 py-2 text-[0.8125rem] text-[var(--danger)]">{error}</p>}
+            {notice && <p className="rounded-lg bg-[var(--success-soft)] px-3 py-2 text-[0.8125rem] text-[var(--success)]">{notice}</p>}
 
+            <button type="submit" disabled={busy} className="primary-button w-full disabled:opacity-50">
+              {busy ? 'One moment…' : {
+                signin: 'Sign in',
+                signup: 'Create my account',
+                magic: 'Email me a link',
+                reset: 'Send reset link',
+              }[mode]}
+            </button>
+
+            {isCloudConfigured && mode === 'signin' && (
               <button
-                type="submit"
+                type="button"
                 disabled={busy}
-                className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--accent-action)] px-3 text-[0.875rem] font-semibold text-white hover:bg-[var(--accent-action-hover)] disabled:opacity-50"
+                onClick={() =>
+                  run(
+                    () => signInWithOAuth({ provider: 'google' }),
+                    () => setNotice('Continuing with Google…'),
+                  )
+                }
+                className="quiet-button w-full"
               >
-                {busy ? 'One moment…' : mode === 'signup' ? 'Create my account' : 'Sign in'}
+                Continue with Google
               </button>
+            )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  const local = continueLocalOnly()
-                  onChange(local)
-                  setNotice('Local-only mode is on. Nothing leaves this device.')
-                }}
-                className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--line)] px-3 text-[0.875rem] font-semibold text-[var(--ink-2)] hover:bg-[var(--paper)]"
-              >
-                Use local-only mode
-              </button>
+            <button
+              type="button"
+              onClick={() => {
+                const local = continueLocalOnly()
+                onChange(local)
+                setNotice('Local-only mode is on. Nothing leaves this device.')
+              }}
+              className="quiet-button w-full"
+            >
+              Use local-only mode
+            </button>
 
-              <p className="metadata">
-                {isCloudConfigured
-                  ? 'Sign-in syncs preferences. Keys stay on this device.'
-                  : 'Cloud sign-in is not configured here. Local-only mode works right away.'}
-              </p>
-            </form>
-          ) : (
-            <div className="space-y-3">
-              <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4">
-                <div className="flex items-center gap-2">
-                  <span className="tnum flex size-9 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
-                    {(account.name || account.email || 'B').slice(0, 1).toUpperCase()}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[0.9375rem] font-semibold text-[var(--ink)]">{account.name || account.email}</p>
-                    <p className="truncate text-[0.8125rem] text-[var(--muted)]">{account.email}</p>
-                  </div>
-                  <span className="metadata">{account.localOnly ? 'Local only' : 'Synced'}</span>
+            <p className="metadata">
+              {isCloudConfigured
+                ? 'Sign-in syncs preferences. Keys stay on this device.'
+                : 'Cloud sign-in is not configured here. Local-only mode works right away.'}
+            </p>
+          </form>
+        ) : (
+          <div className="space-y-3">
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4">
+              <div className="flex items-center gap-2">
+                <span className="tnum flex size-9 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
+                  {(account.name || account.email || 'B').slice(0, 1).toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[0.9375rem] font-semibold text-[var(--ink)]">{account.name || account.email}</p>
+                  <p className="truncate text-[0.8125rem] text-[var(--muted)]">{account.email}</p>
                 </div>
+                <span className="metadata">{account.localOnly ? 'Local only' : 'Synced'}</span>
               </div>
+            </div>
 
-              <button
-                type="button"
-                onClick={downloadData}
-                className="inline-flex min-h-12 w-full items-center gap-1.5 rounded-lg border border-[var(--line)] px-3 text-[0.8125rem] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"
-              >
-                Download my data
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  signOut()
-                  onChange(null)
-                  setNotice('Signed out.')
-                }}
-                className="inline-flex min-h-12 w-full items-center gap-1.5 rounded-lg border border-[var(--line)] px-3 text-[0.8125rem] font-semibold text-[var(--ink-2)] hover:bg-[var(--paper)]"
-              >
-                Sign out
-              </button>
-
-              <div className="rounded-xl border border-[var(--danger-line)] bg-[var(--danger-soft)] p-4">
-                <p className="text-[0.875rem] font-semibold text-[var(--danger)]">Delete account</p>
-                <p className="mt-1 text-[0.8125rem] leading-snug text-[var(--danger)]">
-                  This removes your saved settings, keys, calendar links and cached briefings here. If you have a synced account, it also closes that account.
-                </p>
+            {account.cloud && (
+              <>
                 <button
                   type="button"
-                  onClick={removeAccount}
                   disabled={busy}
-                  className="mt-3 inline-flex min-h-12 items-center gap-1.5 rounded-lg bg-[var(--danger-action)] px-3 text-[0.8125rem] font-semibold text-white hover:bg-[var(--danger-action)] disabled:opacity-40"
+                  onClick={() => run(() => refreshSession(), (next) => { onChange(next); setNotice('Session refreshed.') })}
+                  className="quiet-button w-full"
                 >
-                  Delete account and data
+                  Refresh session
                 </button>
-              </div>
+                <div className="space-y-2">
+                  <label htmlFor="new-password" className="metadata">New password</label>
+                  <input
+                    id="new-password"
+                    className={inputClass}
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    minLength={8}
+                  />
+                  <button
+                    type="button"
+                    disabled={busy || newPassword.length < 8}
+                    onClick={() => run(() => updatePassword(newPassword), () => { setNewPassword(''); setNotice('Password updated.') })}
+                    className="quiet-button w-full disabled:opacity-40"
+                  >
+                    Change password
+                  </button>
+                </div>
+              </>
+            )}
 
-              {error && <p className="rounded-lg bg-[var(--danger-soft)] px-3 py-2 text-[0.8125rem] text-[var(--danger)]">{error}</p>}
-              {notice && <p className="rounded-lg bg-[var(--success-soft)] px-3 py-2 text-[0.8125rem] text-[var(--success)]">{notice}</p>}
+            <button type="button" onClick={downloadData} className="quiet-button w-full">Download my data</button>
+
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                run(
+                  () => signOut(),
+                  () => {
+                    onChange(null)
+                    setNotice('Signed out.')
+                  },
+                )
+              }
+              className="quiet-button w-full"
+            >
+              Sign out
+            </button>
+
+            <div className="rounded-xl border border-[var(--danger-line)] bg-[var(--danger-soft)] p-4">
+              <p className="text-[0.875rem] font-semibold text-[var(--danger)]">Delete account</p>
+              <p className="mt-1 text-[0.8125rem] leading-snug text-[var(--danger)]">
+                This removes your saved settings, keys, calendar links and cached briefings here. If you have a synced account, it also closes that account.
+              </p>
+              <button type="button" onClick={removeAccount} disabled={busy} className="danger-button mt-3 w-full">
+                Delete account and data
+              </button>
             </div>
-          )}
+
+            {error && <p className="rounded-lg bg-[var(--danger-soft)] px-3 py-2 text-[0.8125rem] text-[var(--danger)]">{error}</p>}
+            {notice && <p className="rounded-lg bg-[var(--success-soft)] px-3 py-2 text-[0.8125rem] text-[var(--success)]">{notice}</p>}
+          </div>
+        )}
       </div>
     </Modal>
   )

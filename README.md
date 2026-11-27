@@ -53,7 +53,7 @@ Briefr works with no account at all. Choose **Continue without an account (Local
 For cross-device syncing, connect a free Supabase project:
 
 1. Create a project on Supabase's free tier and enable email sign-in.
-2. Run `supabase/schema.sql` in the Supabase SQL editor. It creates one preferences table with Row Level Security so each person can only read and write their own row.
+2. Run `supabase/migrations/001_init.sql` in the Supabase SQL editor (or `supabase/schema.sql`, which mirrors it). It creates `user_profiles`, `user_preferences`, `calendar_sources`, and `triage_items`, enables RLS with owner-only policies on all four, and adds a `delete_own_account()` RPC. BYOK keys and calendar tokens are never written to these tables.
 3. Copy `.env.example` to `.env.local` and fill in your project URL and **publishable anon key**.
 4. Add the same two values as build environment variables in Cloudflare Pages.
 5. Sign up from the top bar. Preferences and non-secret calendar settings follow your account between devices.
@@ -96,7 +96,7 @@ Both `VITE_*` values are bundled into browser JavaScript, so they must be publis
 
 - [ ] `npm install` then `npm run dev`; open `http://localhost:5173`.
 - [ ] `npm run build`; confirm `dist/index.html`, `dist/favicon.svg`, `dist/_headers` and hashed assets exist. `functions/api/rss.js` and `functions/api/ics.js` stay at the repo root — Cloudflare adds them at deploy time.
-- [ ] Optional: create a Supabase project, run `supabase/schema.sql`, and set the two public variables from `.env.example`.
+- [ ] Optional: create a Supabase project, run `supabase/migrations/001_init.sql`, and set the two public variables from `.env.example`. Sign-up, password/magic-link/OAuth sign-in, session refresh, and password reset are real Supabase calls; without env vars Briefr uses a full local-only guest account.
 - [ ] Deploy with `npx wrangler pages deploy dist --project-name=briefr` or connect the repo in the Cloudflare dashboard.
 - [ ] Test locally: choose local-only mode, then check Weather, News, Calendar and Inbox cards. In **Keys & settings**, use **Simulate a rate limit** to confirm a provider failure leaves the rest of the page intact.
 - [ ] Test cloud: sign up, change the news lens, add a calendar link, reload, and confirm settings come back.
@@ -107,13 +107,17 @@ Both `VITE_*` values are bundled into browser JavaScript, so they must be publis
 | --- | --- |
 | `src/App.jsx` | The dashboard and all the small interactions |
 | `src/components/` | Cards, key manager, setup steps, and controls |
-| `src/lib/digestRunner.js` | Puts the morning run together |
-| `src/lib/auth.js` | Supabase Auth and local-only mode |
-| `src/lib/db.js` | User-scoped cloud preferences and exports |
+| `src/lib/digestRunner.js` | `runMorningDigest`: calendars + weather + RSS + synthesis with daily cache |
 | `src/lib/session.js` | Active account session |
 | `src/components/PrivacyPanel.jsx` | Connections, data controls and privacy copy |
-| `supabase/schema.sql` | Preferences table and RLS policies |
-| `src/lib/calendarService.js` | Reads Google, Notion, ICS and CalDAV events |
+| `supabase/migrations/001_init.sql` | User tables, RLS policies, triggers, account deletion RPC |
+| `src/lib/auth.js` | Shared cloud/local auth interface |
+| `src/lib/db.js` | User-scoped preferences, calendar sources, and triage sync |
+| `src/lib/calendarService.js` | Reads Google, Notion, Apple/Proton ICS and CalDAV events into one schema |
+| `src/lib/schedule.js` | Groups all-day events, finds Up Next, flags overlaps and tight transitions |
+| `src/lib/triageService.js` | Sorts pasted inbox text into daily needs-action / FYI / noise items |
+| `src/components/MorningChecklist.jsx` | Counts today's events and open action items, with timing flags |
+| `src/lib/prompts.js` | Weather, wardrobe, news, schedule and triage prompts for the LLM |
 | `src/lib/llmRotator.js` | Tries keys and models in order |
 | `src/lib/weatherService.js` | Open-Meteo weather and place search |
 | `src/lib/rssService.js` | Reads the selected feeds |
@@ -122,5 +126,13 @@ Both `VITE_*` values are bundled into browser JavaScript, so they must be publis
 | `functions/api/ics.js` | The Cloudflare Pages calendar-link proxy |
 | `api/icsShared.js` | Shared ICS parsing and URL checks |
 | `public/favicon.svg` | The Briefr mark |
+
+The morning run is coordinated by `runMorningDigest()`, which syncs calendars, fetches weather and feeds, runs tone/lens-aware synthesis, and caches daily results. Each section degrades independently; a failed feed or provider leaves the rest of the page usable, and weather/news/calendar sections expose retry buttons. Triage returns strict `{ needsAction, fyi, noiseCount, noiseItems }` JSON and keeps working with a deterministic fallback when no key is configured or every provider is rate-limited. Run `npm run verify:digest` and `npm run verify:triage` to check the orchestrator and triage contract.
+
+Political curation uses canonical tokens: `politicalLens` is `neutral | conservative | liberal | libertarian | independent | unfiltered` and `coverageMode` is `aligned | balanced`. Old display-label values migrate automatically on load. Balanced mode adds broader-debate feeds and asks the LLM for multiple viewpoints grounded only in the supplied RSS items; aligned mode prioritizes stories relevant to the chosen lens without changing facts or attribution. The news lens badge switches between the chosen lens and Neutral in one click. Run `npm run verify:politics` to check tokens, migration, prompt rules, and perspective feeds.
+
+Google (paginated REST with read-only OAuth), Notion (paginated database query with date-range matching and tags), Apple/Proton ICS, and CalDAV all normalize to `{ id, title, startTime, endTime, isAllDay, location, source, status, notes }`. The ICS parser unfolds lines, honors `TZID`/UTC, `EXDATE`, and daily/weekly/monthly `RRULE`, and the `/api/ics` edge function enforces HTTPS-only, blocks private/loopback/link-local hosts, times out, and returns `Cache-Control: no-store`. In local dev the browser falls back to a validated direct fetch. Timed events sort chronologically, all-day items sit above the timeline, and Under 20-minute gaps are flagged as tight transitions. No mock schedule is used in production paths — use **Add a quick event** for an instant local item. Run `npm run verify:calendars` to check SSRF rules, edge caching, pagination, adapters, and recurrence.
+
+Every calendar source is normalized to `{ id, title, startTime, endTime, isAllDay, location, source, status, notes }`. Quick one-off events for today are stored only in this browser and travel through the same pipeline. Triage results are also day-scoped: only derived items are saved, never the pasted text itself, and a new day resets both. Triage cross-references today's schedule when available, so an urgent item before an early meeting gets a prep note in the Inbox and a timing flag in the Morning Checklist. Run `npm run verify:schedule` and `npm run verify:triage` to check recurrence, friction flags, prompt wiring, fallback sorting, and daily state.
 
 Made for slow mornings, not dashboards that shout.

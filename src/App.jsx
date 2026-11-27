@@ -11,7 +11,9 @@ import CalendarSourcesModal from './components/CalendarSourcesModal.jsx'
 import AccountModal from './components/AccountModal.jsx'
 import { CardBoundary } from './components/ErrorBoundary.jsx'
 import RotationStatusBanner from './components/RotationStatusBanner.jsx'
-import { digest, mockCalendarEvents, mockWeather } from './lib/mockDigest.js'
+import MorningChecklist from './components/MorningChecklist.jsx'
+import { prepareSchedule } from './lib/schedule.js'
+import { digest, mockWeather } from './lib/mockDigest.js'
 import {
   DEFAULT_PREFS,
   clearAllStorage,
@@ -22,22 +24,40 @@ import {
   saveCalendars,
   saveKeys,
   savePrefs,
+  saveQuickEvent,
   todayKey,
 } from './lib/storage.js'
 import { applyRateLimit, getKeyStatus, isKeyEligible, pingKey, runWithRotation } from './lib/llmRotator.js'
-import { buildFallbackWardrobe, buildTriagePrompt, triageLocally } from './lib/prompts.js'
+import { buildFallbackWardrobe } from './lib/prompts.js'
+import {
+  clearTriage,
+  emptyTriage,
+  loadTriage,
+  setTriageItemDone,
+  triageMessages,
+} from './lib/triageService.js'
 import { buildBriefingScript } from './lib/audioBriefing.js'
 import { playAlertTone } from './lib/alertSound.js'
 import { applyTheme, readTheme, storeTheme } from './lib/theme.js'
-import { MOCK_NEWS_ITEMS, runMorningBriefing } from './lib/digestRunner.js'
-import { bootstrapAuth, deleteAccount, getCurrentAccount, onAuthChange } from './lib/accountService.js'
-import { clearCachedDigest, exportAccountData, loadCloudData, saveCloudData } from './lib/db.js'
+import { runMorningDigest } from './lib/digestRunner.js'
+import {
+  bootstrapAuth,
+  clearCloudTriage,
+  deleteAccount,
+  getCurrentAccount,
+  loadCloudTriage,
+  onAuthChange,
+  saveCloudTriage,
+  saveCloudData,
+  saveProfile,
+  signOut,
+} from './lib/accountService.js'
+import { clearCachedDigest, exportAccountData, loadCloudData } from './lib/db.js'
 import {
   clearOAuthProvider,
   completeGoogleOAuth,
   completeNotionOAuth,
   getOAuthProvider,
-  getTodaysEvents,
 } from './lib/calendarService.js'
 
 const TOAST_TONES = {
@@ -45,11 +65,6 @@ const TOAST_TONES = {
   warn: 'text-[var(--warning)]',
   neutral: 'text-[var(--ink-2)]',
 }
-
-const SYSTEM_PROMPT =
-  'You are Briefr, a calm morning briefing assistant. Return strict JSON only, with no markdown or commentary.'
-
-const TODAY = todayKey()
 
 export default function App() {
   const [prefs, setPrefs] = useState(loadPrefs)
@@ -60,6 +75,8 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false)
   const [toast, setToast] = useState(null)
   const [calendarNonce, setCalendarNonce] = useState(0)
+  const [today, setToday] = useState(todayKey)
+  const [triage, setTriage] = useState(() => loadTriage(todayKey()))
   const [theme, setTheme] = useState(readTheme)
   const [resolvedTheme, setResolvedTheme] = useState(() => applyTheme(readTheme()))
   const runCounterRef = useRef(0)
@@ -88,9 +105,7 @@ export default function App() {
   )
   const utteranceRef = useRef(null)
 
-  const [triageResult, setTriageResult] = useState(null)
   const [triageLoading, setTriageLoading] = useState(false)
-  const [triageSource, setTriageSource] = useState('rules')
 
   const [calendars, setCalendars] = useState(loadCalendars)
   const [showCalendars, setShowCalendars] = useState(false)
@@ -116,11 +131,17 @@ export default function App() {
     setAccount(next)
     let nextPrefs = loadPrefs()
     let nextCalendars = loadCalendars()
+    let nextTriage = loadTriage(todayKey())
     if (next?.cloud) {
       try {
-        const cloud = await loadCloudData(next.id)
+        const [cloud, cloudTriage] = await Promise.all([
+          loadCloudData(next.id),
+          loadCloudTriage(next.id, todayKey()),
+        ])
         if (cloud?.prefs) nextPrefs = { ...nextPrefs, ...cloud.prefs }
         if (cloud?.calendars) nextCalendars = { ...nextCalendars, ...cloud.calendars }
+        if (cloudTriage) nextTriage = cloudTriage
+        await saveProfile(next.id, { displayName: next.name, email: next.email })
       } catch (error) {
         setToast({ tone: 'warn', message: `Couldn't load synced settings: ${error.message}` })
       }
@@ -133,6 +154,7 @@ export default function App() {
     setRotationMeta(null)
     setNewsDigest(null)
     setNewsSource('raw')
+    setTriage(nextTriage)
     setBannerDismissed(false)
     setCalendarNonce((value) => value + 1)
   }, [])
@@ -151,6 +173,19 @@ export default function App() {
     },
     [setKeysAndSave],
   )
+
+  const toggleLens = useCallback(() => {
+    if (prefs.politicalLens === 'neutral') {
+      const saved = prefs.savedPoliticalLens
+      if (!saved || saved === 'neutral') {
+        setShowKeyManager(true)
+        return
+      }
+      updateSettings({ politicalLens: saved })
+      return
+    }
+    updateSettings({ politicalLens: 'neutral', savedPoliticalLens: prefs.politicalLens })
+  }, [prefs.politicalLens, prefs.savedPoliticalLens, updateSettings])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -182,6 +217,19 @@ export default function App() {
     const meta = document.querySelector('meta[name="theme-color"]')
     if (meta) meta.content = resolvedTheme === 'dark' ? '#14130f' : '#f7f6f2'
   }, [resolvedTheme])
+
+  // Midnight rollover resets daily triage and schedule without touching prefs or keys.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const key = todayKey()
+      if (key === today) return
+      setToday(key)
+      setTriage(emptyTriage(key))
+      setCalendarNonce((value) => value + 1)
+      setToast({ tone: 'neutral', message: 'A new day — today’s schedule and triage are fresh.' })
+    }, 60_000)
+    return () => window.clearInterval(timer)
+  }, [today])
 
   // Restore the Supabase session (or stay in local-only mode) on reload.
   useEffect(() => {
@@ -215,6 +263,17 @@ export default function App() {
     return () => window.clearTimeout(timer)
   }, [account, prefs, calendars])
 
+  // Structured triage items follow the account; pasted text never does.
+  useEffect(() => {
+    if (!account?.cloud) return undefined
+    const timer = window.setTimeout(() => {
+      saveCloudTriage(account.id, triage).catch((error) => {
+        setToast({ tone: 'warn', message: `Couldn't sync triage: ${error.message}` })
+      })
+    }, 600)
+    return () => window.clearTimeout(timer)
+  }, [account, triage])
+
   // Finish an OAuth redirect, if one just brought the user back.
   useEffect(() => {
     let cancelled = false
@@ -239,37 +298,6 @@ export default function App() {
     }
   }, [])
 
-  // Pull today's events from every connected source.
-  useEffect(() => {
-    let cancelled = false
-    const connected = Boolean(
-      calendars.google?.token ||
-        (calendars.notion?.token && calendars.notion?.databaseId) ||
-        calendars.ics?.length ||
-        (calendars.caldav?.proxyUrl && calendars.caldav?.calendarUrl),
-    )
-    if (!connected) {
-      setEvents(mockCalendarEvents)
-      setCalendarMeta({ loading: false, errors: [], connected: false })
-      return undefined
-    }
-    setCalendarMeta({ loading: true, errors: [], connected: true })
-    getTodaysEvents(calendars, TODAY)
-      .then((result) => {
-        if (cancelled) return
-        setEvents(result.events)
-        setCalendarMeta({ loading: false, errors: result.errors, connected: true })
-      })
-      .catch((error) => {
-        if (cancelled) return
-        setEvents([])
-        setCalendarMeta({ loading: false, errors: [error.message], connected: true })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [calendars, calendarNonce])
-
   // One-click Morning Run: weather + feeds + LLM synthesis, with offline fallbacks.
   const runMorning = useCallback(
     async ({ forceRefresh = false } = {}) => {
@@ -281,10 +309,19 @@ export default function App() {
       setWeatherMeta((previous) => ({ ...previous, loading: true, error: null }))
       setWardrobeLoading(true)
       setNewsLoading(true)
+      setCalendarMeta((previous) => ({ ...previous, loading: true }))
 
       try {
-        const result = await runMorningBriefing({ prefs, keys, forceRefresh, schedule: events })
+        const result = await runMorningDigest({
+          prefs,
+          keys,
+          forceRefresh,
+          connections: calendars,
+          date: today,
+        })
         if (runId !== runCounterRef.current) return
+        setEvents(result.schedule)
+        setCalendarMeta(result.calendarMeta)
         setWeather(result.weather)
         setWeatherMeta(result.weatherMeta)
         setWardrobe(result.wardrobe)
@@ -295,16 +332,23 @@ export default function App() {
         setNewsSource(result.newsSource)
         setNewsRankMeta(result.newsRankMeta)
         if (JSON.stringify(result.keys) !== before) setKeys(result.keys)
+      } catch (error) {
+        if (runId === runCounterRef.current) {
+          setCalendarMeta((previous) => ({ ...previous, loading: false, errors: [error.message] }))
+          setWeatherMeta((previous) => ({ ...previous, error: error.message }))
+          setNewsMeta((previous) => ({ ...previous, errors: [...previous.errors, error.message] }))
+        }
       } finally {
         if (runId === runCounterRef.current) {
           setWeatherMeta((previous) => ({ ...previous, loading: false }))
           setWardrobeLoading(false)
           setNewsLoading(false)
+          setCalendarMeta((previous) => ({ ...previous, loading: false }))
           setRefreshing(false)
         }
       }
     },
-    [prefs, keys, events],
+    [prefs, keys, calendars, calendarNonce, today],
   )
 
   useEffect(() => {
@@ -346,6 +390,32 @@ export default function App() {
       )
       setToast({ tone: 'neutral', message: 'Back to normal. Keys taking a break are ready again.' })
     }
+  }
+
+  const addQuickEvent = ({ title, time = '', location = '' }) => {
+    const start = new Date()
+    if (time) {
+      const [hours, minutes] = time.split(':').map(Number)
+      start.setHours(hours, minutes, 0, 0)
+    } else {
+      start.setHours(9, 0, 0, 0)
+    }
+    saveQuickEvent(
+      {
+        id: `quick_${Date.now()}`,
+        title,
+        startTime: start.toISOString(),
+        endTime: new Date(start.getTime() + 1_800_000).toISOString(),
+        isAllDay: false,
+        location,
+        source: 'Quick add',
+        status: '',
+        notes: '',
+      },
+      today,
+    )
+    setCalendarNonce((value) => value + 1)
+    setToast({ tone: 'ok', message: `Added ${title} to today.` })
   }
 
   const refreshDigest = () => {
@@ -410,38 +480,44 @@ export default function App() {
   const handleTriage = async (text) => {
     setTriageLoading(true)
     const keysSnapshot = keys
-    if (!keysSnapshot.length) {
-      setTriageResult(triageLocally(text))
-      setTriageSource('rules')
-      setTriageLoading(false)
-      return
-    }
     try {
-      const { data } = await runWithRotation({
+      const next = await triageMessages({
+        rawText: text,
         keys: keysSnapshot,
-        prompt: buildTriagePrompt({ text }),
-        systemPrompt: SYSTEM_PROMPT,
-        forceRefresh: true,
-        cacheKey: null,
+        todayEvents: events,
+        tone: prefs.tone,
+        date: today,
       })
-      const category = ['Needs Action', 'FYI', 'Newsletters & Promos'].includes(data.category)
-        ? data.category
-        : 'FYI'
-      setTriageResult({
-        category,
-        summary: String(data.summary ?? ''),
-        reason: String(data.reason ?? ''),
-        nextStep: String(data.nextStep ?? ''),
-      })
-      setTriageSource('ai')
-    } catch {
-      setTriageResult(triageLocally(text))
-      setTriageSource('rules')
-      setToast({ tone: 'warn', message: "Couldn't use AI for this — sorted it on your device instead." })
+      setTriage(next)
+      if (keysSnapshot.length && next.source === 'rules') {
+        setToast({ tone: 'warn', message: "Couldn't use AI for this — sorted it on your device instead." })
+      }
     } finally {
       setTriageLoading(false)
       const after = JSON.stringify(loadKeys())
       if (after !== JSON.stringify(keysSnapshot)) setKeys(loadKeys())
+    }
+  }
+
+  const completeTriageItem = (id) => setTriage(setTriageItemDone(triage, id, true))
+
+  const clearTriageNow = () => {
+    setTriage(clearTriage(today))
+    if (account?.cloud) {
+      clearCloudTriage(account.id, today).catch((error) => {
+        setToast({ tone: 'warn', message: `Couldn't clear synced triage: ${error.message}` })
+      })
+    }
+    setToast({ tone: 'neutral', message: 'Today’s triage is cleared.' })
+  }
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      await handleAccountChange(null)
+      setToast({ tone: 'neutral', message: 'Signed out. Your keys stay on this device.' })
+    } catch (error) {
+      setToast({ tone: 'warn', message: error.message })
     }
   }
 
@@ -460,8 +536,7 @@ export default function App() {
     setNewsSource('raw')
     setNewsRankMeta(null)
     setNewsMeta({ errors: [], sourceCount: 0 })
-    setTriageResult(null)
-    setTriageSource('rules')
+    setTriage(emptyTriage(today))
     setBannerDismissed(false)
     setShowKeyManager(false)
     setShowWizard(false)
@@ -477,7 +552,7 @@ export default function App() {
     setRotationMeta(null)
     setNewsDigest(null)
     setNewsSource('raw')
-    setTriageResult(null)
+    setTriage(emptyTriage(today))
     setShowKeyManager(false)
     setCalendarNonce((value) => value + 1)
     setToast({ tone: 'ok', message: 'Everything saved on this device is cleared.' })
@@ -534,6 +609,12 @@ export default function App() {
   }
 
   const showSetupBanner = !prefs.onboardingDone && !bannerDismissed
+  const dayPlan = prepareSchedule(events)
+  const openActions = triage.needsAction.filter((item) => !item.done).length
+  const timingFlags =
+    Object.keys(dayPlan.friction).length +
+    triage.needsAction.filter((item) => !item.done && item.scheduleNote).length
+  const scrollToCard = (id) => document.getElementById(id)?.scrollIntoView({ block: 'start' })
 
   return (
     <div className="min-h-screen bg-[var(--paper)]">
@@ -558,7 +639,7 @@ export default function App() {
         <RotationStatusBanner meta={rotationMeta} keys={keys} onManage={() => setShowKeyManager(true)} />
 
         {showSetupBanner && (
-          <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-3 py-4">
+          <div className="mb-6 flex flex-col items-start gap-3 py-4 sm:flex-row sm:items-center sm:gap-x-6">
             <div className="min-w-0 flex-1">
               <p className="reading-title">Make this morning yours in three small steps.</p>
               <p className="metadata mt-1">Weather and outfit advice already work — keys are optional.</p>
@@ -566,7 +647,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setShowWizard(true)}
-              className="primary-button"
+              className="primary-button w-full sm:w-auto"
             >
               Start setup <ArrowRight size={14} />
             </button>
@@ -588,12 +669,22 @@ export default function App() {
           </p>
         </div>
 
+        <MorningChecklist
+          eventCount={events.length}
+          openActions={openActions}
+          upNext={dayPlan.upNext}
+          timingFlags={timingFlags}
+          onOpenDay={() => scrollToCard('your-day')}
+          onOpenInbox={() => scrollToCard('inbox')}
+        />
+
         <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
           <CardBoundary title="Weather" resetKey={calendarNonce}>
             <WeatherOutfitCard
               weather={weather}
               wardrobe={wardrobe}
               error={weatherMeta.error}
+              onRetry={() => runMorning({ forceRefresh: true })}
               preferences={{
                 sensitivity: prefs.sensitivity,
                 commute: prefs.commute,
@@ -612,28 +703,33 @@ export default function App() {
               sourceCount={newsMeta.sourceCount}
               politicalLens={prefs.politicalLens}
               coverageMode={prefs.coverageMode}
-              onResetLens={() => updateSettings({ politicalLens: 'Neutral / Balanced', coverageMode: 'Balanced / Both Sides' })}
+              onToggleLens={toggleLens}
+              onRetry={() => runMorning({ forceRefresh: true })}
               onOpenSettings={() => setShowKeyManager(true)}
             />
           </CardBoundary>
           <div className="space-y-5">
             <CardBoundary title="Calendar" resetKey={calendarNonce}>
               <ScheduleCard
+                id="your-day"
                 events={events}
                 loading={calendarMeta.loading}
                 errors={calendarMeta.errors}
                 dayNotes={wardrobe.dayNotes ?? ''}
                 connected={calendarMeta.connected}
                 onConnect={() => setShowCalendars(true)}
+                onAddQuickEvent={addQuickEvent}
+                onRetry={() => runMorning({ forceRefresh: true })}
               />
             </CardBoundary>
             <CardBoundary title="Inbox" resetKey={calendarNonce}>
               <TriageCard
-                inbox={digest.inbox}
-                result={triageResult}
+                id="inbox"
+                triage={triage}
                 loading={triageLoading}
-                source={triageSource}
                 onTriage={handleTriage}
+                onComplete={completeTriageItem}
+                onClear={clearTriageNow}
               />
             </CardBoundary>
           </div>
@@ -671,6 +767,8 @@ export default function App() {
           onWipeLocalData={wipeLocalData}
           account={account}
           prefs={prefs}
+          onOpenAccount={() => setShowAccount(true)}
+          onSignOut={handleSignOut}
           onPrefsChange={updateSettings}
           theme={theme}
           onThemeChange={setTheme}

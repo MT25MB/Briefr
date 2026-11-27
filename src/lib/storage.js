@@ -5,11 +5,13 @@ const KEYS_KEY = 'briefr_keys'
 const PREFS_KEY = 'briefr_prefs'
 const CALENDARS_KEY = 'briefr_calendars'
 const CACHE_KEY = 'briefr_digest_cache'
+const QUICK_EVENTS_KEY = 'briefr_quick_events'
+const TRIAGE_KEY = 'briefr_triage'
 const DAY_KEY = 'briefr_keys_day'
 const MIGRATED_KEY = 'briefr_migrated_v3'
 const LEGACY_KEY = 'briefr.settings.v1'
 
-const USER_DATA_KEYS = [KEYS_KEY, PREFS_KEY, CALENDARS_KEY, CACHE_KEY, DAY_KEY, MIGRATED_KEY]
+const USER_DATA_KEYS = [KEYS_KEY, PREFS_KEY, CALENDARS_KEY, CACHE_KEY, QUICK_EVENTS_KEY, TRIAGE_KEY, DAY_KEY, MIGRATED_KEY]
 
 export function scopeKey(key, accountId = getActiveAccountId()) {
   return accountId ? `briefr_${accountId}_${key}` : key
@@ -38,15 +40,29 @@ export function copyAnonymousDataToScope(accountId) {
 export const TONES = ['Quick Bullets', 'Friendly', 'Direct']
 
 export const POLITICAL_LENSES = [
-  'Neutral / Balanced',
-  'Conservative / Republican',
-  'Liberal / Democratic',
-  'Libertarian',
-  'Independent / Centrist',
-  'None / Unfiltered',
+  'neutral',
+  'conservative',
+  'liberal',
+  'libertarian',
+  'independent',
+  'unfiltered',
 ]
 
-export const COVERAGE_MODES = ['Aligned Lens', 'Balanced / Both Sides']
+export const POLITICAL_LENS_LABELS = {
+  neutral: 'Neutral / Balanced',
+  conservative: 'Conservative / Republican',
+  liberal: 'Liberal / Democratic',
+  libertarian: 'Libertarian',
+  independent: 'Independent / Centrist',
+  unfiltered: 'None / Unfiltered',
+}
+
+export const COVERAGE_MODES = ['aligned', 'balanced']
+
+export const COVERAGE_MODE_LABELS = {
+  aligned: 'Aligned Framing',
+  balanced: 'Balanced / Multi-Perspective',
+}
 
 export const DEFAULT_PREFS = {
   tone: 'Quick Bullets',
@@ -58,8 +74,9 @@ export const DEFAULT_PREFS = {
   commute: 'Walk / Transit',
   topics: ['Local', 'Tech & AI'],
   feeds: [],
-  politicalLens: 'Neutral / Balanced',
-  coverageMode: 'Balanced / Both Sides',
+  politicalLens: 'neutral',
+  coverageMode: 'balanced',
+  savedPoliticalLens: 'neutral',
 }
 
 export const DEFAULT_CALENDARS = {
@@ -83,7 +100,7 @@ export function todayKey(date = new Date()) {
   return `${year}-${month}-${day}`
 }
 
-function readJson(key, fallback) {
+export function readJson(key, fallback) {
   try {
     const raw = localStorage.getItem(scopeKey(key))
     return raw ? JSON.parse(raw) : fallback
@@ -92,7 +109,7 @@ function readJson(key, fallback) {
   }
 }
 
-function writeJson(key, value) {
+export function writeJson(key, value) {
   try {
     localStorage.setItem(scopeKey(key), JSON.stringify(value))
   } catch {
@@ -152,21 +169,44 @@ function resetDailyFlagsIfNeeded() {
 }
 
 const LENS_ALIASES = {
-  'Balanced / Neutral': 'Neutral / Balanced',
-  'Custom / No Political Filtering': 'None / Unfiltered',
+  neutral: 'neutral',
+  conservative: 'conservative',
+  liberal: 'liberal',
+  libertarian: 'libertarian',
+  independent: 'independent',
+  unfiltered: 'unfiltered',
+  'Neutral / Balanced': 'neutral',
+  'Balanced / Neutral': 'neutral',
+  'Conservative / Republican': 'conservative',
+  'Liberal / Democratic': 'liberal',
+  'Independent / Centrist': 'independent',
+  'None / Unfiltered': 'unfiltered',
+  'Custom / No Political Filtering': 'unfiltered',
 }
 const COVERAGE_ALIASES = {
-  'Cross-perspective': 'Balanced / Both Sides',
-  'Mostly aligned': 'Aligned Lens',
+  aligned: 'aligned',
+  balanced: 'balanced',
+  'Aligned Lens': 'aligned',
+  'Balanced / Both Sides': 'balanced',
+  'Cross-perspective': 'balanced',
+  'Mostly aligned': 'aligned',
+}
+
+export function normalizePoliticalLens(value) {
+  return LENS_ALIASES[value] ?? DEFAULT_PREFS.politicalLens
+}
+
+export function normalizeCoverageMode(value) {
+  return COVERAGE_ALIASES[value] ?? DEFAULT_PREFS.coverageMode
 }
 
 export function loadPrefs() {
   migrateLegacy()
   const stored = readJson(PREFS_KEY, {})
-  const politicalLens = LENS_ALIASES[stored.politicalLens] ?? stored.politicalLens ?? DEFAULT_PREFS.politicalLens
-  const rawCoverage = stored.coverageMode ?? stored.perspectiveMode
-  const coverageMode = COVERAGE_ALIASES[rawCoverage] ?? rawCoverage ?? DEFAULT_PREFS.coverageMode
-  const next = { ...DEFAULT_PREFS, ...stored, politicalLens, coverageMode }
+  const politicalLens = normalizePoliticalLens(stored.politicalLens)
+  const coverageMode = normalizeCoverageMode(stored.coverageMode ?? stored.perspectiveMode)
+  const savedPoliticalLens = normalizePoliticalLens(stored.savedPoliticalLens)
+  const next = { ...DEFAULT_PREFS, ...stored, politicalLens, coverageMode, savedPoliticalLens }
   delete next.perspectiveMode
   return next
 }
@@ -192,6 +232,35 @@ export function loadCalendars() {
 
 export function saveCalendars(calendars) {
   writeJson(CALENDARS_KEY, calendars)
+}
+
+function localDateKey(value) {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+// Quick one-off events are plain preferences, never secrets.
+export function loadQuickEvents(date = todayKey()) {
+  return readJson(QUICK_EVENTS_KEY, []).filter(
+    (event) => localDateKey(event.startTime) === date || event.dateKey === date,
+  )
+}
+
+export function saveQuickEvent(event, date = todayKey()) {
+  const events = readJson(QUICK_EVENTS_KEY, []).filter((item) => item.id !== event.id)
+  events.push({ ...event, dateKey: date, source: event.source || 'Quick add' })
+  writeJson(QUICK_EVENTS_KEY, events)
+  return events
+}
+
+export function removeQuickEvent(id) {
+  writeJson(
+    QUICK_EVENTS_KEY,
+    readJson(QUICK_EVENTS_KEY, []).filter((event) => event.id !== id),
+  )
 }
 
 export function defaultBaseUrl(provider) {

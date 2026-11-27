@@ -22,7 +22,13 @@ export function buildBriefingScript({
     ? newsDigest.important
     : rawNews.filter((item) => item.category !== 'Local News')
   const actions = (inbox?.needsAction ?? []).slice(0, 3)
-  const events = schedule.slice(0, 3).map((item) => `${item.title} at ${item.time} ${item.meridiem}`)
+  const events = schedule.slice(0, 3).map((item) => {
+    const start = item.startTime ? new Date(item.startTime) : null
+    const time = start && !Number.isNaN(start.getTime())
+      ? start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      : ''
+    return `${item.title}${time ? ` at ${time}` : ''}${item.location ? ` in ${item.location}` : ''}`
+  })
 
   const outfit = (wardrobe?.wardrobeTimeline ?? [])
     .slice(0, 3)

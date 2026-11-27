@@ -1,6 +1,6 @@
 // Calendar adapters. Tokens stay in this browser; no Briefr server is involved.
-import { loadCalendars, saveCalendars, todayKey } from './storage.js'
-import { parseIcsFeed } from '../../api/icsShared.js'
+import { loadCalendars, loadQuickEvents, saveCalendars, todayKey } from './storage.js'
+import { parseIcsFeed, validateIcsUrl, zonedDayBounds } from '../../api/icsShared.js'
 
 const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/calendar.events.readonly',
@@ -14,8 +14,6 @@ const NOTION_API = 'https://api.notion.com/v1'
 const OAUTH_STATE_KEY = 'briefr_oauth_state'
 const OAUTH_PROVIDER_KEY = 'briefr_oauth_provider'
 const PKCE_KEY = 'briefr_pkce_verifier'
-
-const DAY_MS = 86_400_000
 
 function safeUrl(url) {
   try {
@@ -48,20 +46,35 @@ async function createPkce() {
 }
 
 function dayBounds(dateKey = todayKey()) {
-  const start = new Date(`${dateKey}T00:00:00`)
-  return { start, end: new Date(start.getTime() + DAY_MS), dateKey }
+  return { ...zonedDayBounds(dateKey, localTimeZone()), dateKey }
 }
 
-function normalizeEvent(event) {
+function toIso(value, allDay = false) {
+  if (!value) return null
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString()
+  const text = String(value)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    // All-day dates stay on the local calendar day, not UTC midnight.
+    return new Date(allDay ? `${text}T00:00:00` : text).toISOString()
+  }
+  const parsed = new Date(text)
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
+}
+
+// Every adapter speaks this one shape. Start/end are ISO strings so the
+// schedule can be passed to prompts and storage without losing meaning.
+export function normalizeEvent(event) {
+  const isAllDay = Boolean(event.isAllDay ?? event.allDay)
   return {
-    id: String(event.id ?? `${event.source}-${event.start}-${event.title}`),
-    source: event.source ?? 'Calendar',
+    id: String(event.id ?? `${event.source}-${event.startTime ?? event.start}-${event.title}`),
     title: event.title || '(No title)',
-    start: event.start ? new Date(event.start) : null,
-    end: event.end ? new Date(event.end) : null,
-    allDay: Boolean(event.allDay),
+    startTime: toIso(event.startTime ?? event.start, isAllDay),
+    endTime: toIso(event.endTime ?? event.end, isAllDay),
+    isAllDay,
     location: event.location ?? '',
+    source: event.source ?? 'Calendar',
     status: event.status ?? '',
+    notes: event.notes ?? '',
   }
 }
 
@@ -128,33 +141,46 @@ export async function startGoogleOAuthPkce({ clientId, redirectUri = window.loca
 export async function fetchGoogleEvents({ token, date = todayKey() }) {
   if (!token) return []
   const { start, end } = dayBounds(date)
-  const params = new URLSearchParams({
-    timeMin: start.toISOString(),
-    timeMax: end.toISOString(),
-    singleEvents: 'true',
-    orderBy: 'startTime',
-    maxResults: '100',
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-  })
-  const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!response.ok) throw new Error(`Google Calendar could not be read (${response.status})`)
-  const data = await response.json()
-  return (data.items ?? [])
+  const items = []
+  let pageToken = ''
+  let pages = 0
+
+  do {
+    const params = new URLSearchParams({
+      timeMin: start.toISOString(),
+      timeMax: end.toISOString(),
+      singleEvents: 'true',
+      orderBy: 'startTime',
+      maxResults: '250',
+      timeZone: localTimeZone(),
+      ...(pageToken ? { pageToken } : {}),
+    })
+    const response = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    )
+    if (!response.ok) throw new Error(`Google Calendar could not be read (${response.status})`)
+    const data = await response.json()
+    items.push(...(data.items ?? []))
+    pageToken = data.nextPageToken ?? ''
+    pages += 1
+  } while (pageToken && pages < 20)
+
+  return items
     .filter((item) => item.status !== 'cancelled')
     .map((item) =>
-    normalizeEvent({
-      id: `google-${item.id}`,
-      source: 'Google',
-      title: item.summary,
-      start: item.start?.dateTime ?? item.start?.date,
-      end: item.end?.dateTime ?? item.end?.date,
-      allDay: Boolean(item.start?.date),
-      location: item.location,
-      status: item.status,
-    }),
-  )
+      normalizeEvent({
+        id: `google-${item.id}`,
+        source: 'Google',
+        title: item.summary,
+        startTime: item.start?.dateTime ?? item.start?.date,
+        endTime: item.end?.dateTime ?? item.end?.date,
+        isAllDay: Boolean(item.start?.date),
+        location: item.location,
+        status: item.status,
+        notes: item.description,
+      }),
+    )
 }
 
 // ---------- Notion (integration token or OAuth through a proxy) ----------
@@ -206,6 +232,25 @@ function findProperty(schema, types) {
   return Object.entries(schema ?? {}).find(([, value]) => types.includes(value.type))?.[0] ?? ''
 }
 
+function notionTags(property) {
+  if (!property) return ''
+  if (Array.isArray(property.multi_select)) return property.multi_select.map((item) => item.name).join(', ')
+  if (property.select?.name) return property.select.name
+  if (property.status?.name) return property.status.name
+  return notionText(property)
+}
+
+function overlapsLocalDay(start, end, date) {
+  if (!start) return false
+  const toDate = (value) =>
+    new Date(String(value).length === 10 ? `${value}T00:00:00` : value)
+  const dayStart = new Date(`${date}T00:00:00`)
+  const dayEnd = new Date(`${date}T23:59:59.999`)
+  const from = toDate(start)
+  const until = end ? toDate(end) : from
+  return from <= dayEnd && until >= dayStart
+}
+
 export async function fetchNotionEvents({ token, databaseId, date = todayKey() }) {
   if (!token || !databaseId) return []
   const headers = {
@@ -223,19 +268,38 @@ export async function fetchNotionEvents({ token, databaseId, date = todayKey() }
   const locationProp = Object.keys(properties).find(
     (name) => name !== titleProp && /location|place|where|address/i.test(name),
   )
+  const notesProp = Object.keys(properties).find(
+    (name) => name !== titleProp && /notes?|description|details|prep/i.test(name),
+  )
+  const tagProp = Object.keys(properties).find(
+    (name) =>
+      name !== titleProp &&
+      name !== statusProp &&
+      ['multi_select', 'select'].includes(properties[name]?.type) &&
+      /tag|topic|label|category|type/i.test(name),
+  )
 
-  const body = dateProp
-    ? { filter: { property: dateProp, date: { equals: date } }, page_size: 100 }
-    : { page_size: 100 }
-  const queryResponse = await fetch(`${NOTION_API}/databases/${databaseId}/query`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  })
-  if (!queryResponse.ok) throw new Error(`Notion entries could not be read (${queryResponse.status})`)
-  const query = await queryResponse.json()
+  const pages = []
+  let cursor = ''
+  let requests = 0
+  do {
+    const body = {
+      page_size: 100,
+      ...(cursor ? { start_cursor: cursor } : {}),
+    }
+    const queryResponse = await fetch(`${NOTION_API}/databases/${databaseId}/query`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    })
+    if (!queryResponse.ok) throw new Error(`Notion entries could not be read (${queryResponse.status})`)
+    const query = await queryResponse.json()
+    pages.push(...(query.results ?? []))
+    cursor = query.has_more ? query.next_cursor : ''
+    requests += 1
+  } while (cursor && requests < 20)
 
-  return (query.results ?? [])
+  return pages
     .filter((page) => {
       if (!statusProp) return true
       const status = notionText(page.properties?.[statusProp]).toLowerCase()
@@ -245,16 +309,19 @@ export async function fetchNotionEvents({ token, databaseId, date = todayKey() }
       const dateValue = page.properties?.[dateProp]?.date
       const start = dateValue?.start ?? null
       const end = dateValue?.end ?? start
-      if (start && !start.startsWith(date)) return null
+      if (!overlapsLocalDay(start, end, date)) return null
+      const notes = notionText(page.properties?.[notesProp])
+      const tags = notionTags(page.properties?.[tagProp])
       return normalizeEvent({
         id: `notion-${page.id}`,
         source: 'Notion',
         title: notionText(page.properties?.[titleProp]),
-        start,
-        end,
-        allDay: Boolean(start && start.length === 10),
+        startTime: start,
+        endTime: end,
+        isAllDay: Boolean(start && start.length === 10),
         location: notionText(page.properties?.[locationProp]),
         status: notionText(page.properties?.[statusProp]),
+        notes: [notes, tags && `Tags: ${tags}`].filter(Boolean).join(' · '),
       })
     })
     .filter(Boolean)
@@ -274,6 +341,26 @@ export function parseIcs(text, source = 'Calendar', date = todayKey()) {
   return parseIcsFeed(text, { source, date, timeZone: localTimeZone() }).map((item) => normalizeEvent(item))
 }
 
+async function fetchIcsDirect({ url, date, source }) {
+  const target = validateIcsUrl(url)
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 8000)
+  try {
+    const response = await fetch(target.href, {
+      signal: controller.signal,
+      headers: { Accept: 'text/calendar, text/plain, */*' },
+    })
+    if (!response.ok) throw new Error(`Calendar link could not be read (${response.status})`)
+    const text = await response.text()
+    return parseIcsFeed(text, { source, date, timeZone: localTimeZone() })
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('Calendar link timed out')
+    throw new Error('Calendar link could not be read directly')
+  } finally {
+    window.clearTimeout(timeout)
+  }
+}
+
 async function itemsFromIcsService({ url, date, source, proxyUrl }) {
   if (proxyUrl && safeUrl(proxyUrl)) {
     const response = await fetch(proxyUrl, {
@@ -291,10 +378,15 @@ async function itemsFromIcsService({ url, date, source, proxyUrl }) {
   }
 
   const params = new URLSearchParams({ url, date, source, timeZone: localTimeZone() })
-  const response = await fetch(`/api/ics?${params}`)
-  const data = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(data?.error ?? `Calendar link could not be read (${response.status})`)
-  return data?.items ?? []
+  try {
+    const response = await fetch(`/api/ics?${params}`)
+    const data = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(data?.error ?? `Calendar link could not be read (${response.status})`)
+    return data?.items ?? []
+  } catch {
+    // Vite dev has no Pages Functions; try the same validated fetch in-browser.
+    return fetchIcsDirect({ url, date, source })
+  }
 }
 
 export async function fetchIcsEvents({ url, source = 'Apple', date = todayKey(), proxyUrl = '' }) {
@@ -376,15 +468,19 @@ export async function getTodaysEvents(connections = loadCalendars(), date = toda
   })
 
   const seen = new Set()
+  const allEvents = [...events, ...loadQuickEvents(date).map((event) => normalizeEvent(event))]
   return {
-    events: events
+    events: allEvents
       .filter((event) => {
-        const key = `${event.source}-${event.title}-${event.start?.getTime()}`
+        const key = `${event.source}-${event.title}-${event.startTime}`
         if (seen.has(key)) return false
         seen.add(key)
         return true
       })
-      .sort((a, b) => (a.start?.getTime() ?? 0) - (b.start?.getTime() ?? 0)),
+      .sort((a, b) => {
+        if (a.isAllDay !== b.isAllDay) return a.isAllDay ? -1 : 1
+        return (a.startTime ?? '').localeCompare(b.startTime ?? '')
+      }),
     errors,
   }
 }

@@ -7,7 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "verify:build": "node scripts/verify-build.mjs"
+    "verify:build": "node scripts/verify-build.mjs",
+    "verify:schedule": "node scripts/verify-schedule.mjs",
+    "verify:triage": "node scripts/verify-triage.mjs",
+    "verify:auth": "node scripts/verify-auth.mjs",
+    "verify:politics": "node scripts/verify-politics.mjs",
+    "verify:calendars": "node scripts/verify-calendars.mjs",
+    "verify:digest": "node scripts/verify-digest.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.2",
